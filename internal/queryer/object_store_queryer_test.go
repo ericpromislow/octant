@@ -21,156 +21,66 @@ import (
 	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	queryerFake "github.com/vmware/octant/internal/queryer/fake"
+	"github.com/vmware/octant/internal/config/fake"
+	configFake "github.com/vmware/octant/internal/config/fake"
 	"github.com/vmware/octant/internal/testutil"
 	"github.com/vmware/octant/pkg/store"
 	storeFake "github.com/vmware/octant/pkg/store/fake"
 )
 
 func TestCacheQueryer_Children(t *testing.T) {
-	deployment := testutil.CreateDeployment("deployment")
+	controller := gomock.NewController(t)
+	defer controller.Finish()
 
-	rs := testutil.CreateExtReplicaSet("rs")
-	rs.SetOwnerReferences(testutil.ToOwnerReferences(t, deployment))
+	owner := testutil.CreateDeployment("deployment")
+	replicaSet1 := testutil.CreateAppReplicaSet("replica-set-1")
+	replicaSet1.SetOwnerReferences(testutil.ToOwnerReferences(t, owner))
+	replicaSet2 := testutil.CreateAppReplicaSet("replica-set-2")
 
-	resourceLists := []*metav1.APIResourceList{
-		nil,
-		{
-			GroupVersion: "apps/v1",
-			APIResources: []metav1.APIResource{
-				{
-					Namespaced: true,
-					Kind:       "Deployment",
-					Verbs:      metav1.Verbs{"watch", "list"},
-				},
-				{
-					Namespaced: true,
-					Kind:       "NotListable",
-					Verbs:      metav1.Verbs{"get"},
-				},
-			},
-		},
-		{
-			GroupVersion: "extensions/v1beta1",
-			APIResources: []metav1.APIResource{
-				{
-					Namespaced: true,
-					Kind:       "ReplicaSet",
-					Verbs:      metav1.Verbs{"watch", "list"},
-				},
-				{
-					Namespaced: true,
-					Kind:       "NotListable",
-					Verbs:      metav1.Verbs{"get"},
-				},
-			},
-		},
-		{
-			GroupVersion: "v1",
-			APIResources: []metav1.APIResource{
-				{Namespaced: false, Kind: "Namespace"},
-			},
-		},
+	dashConfig := configFake.NewMockDash(controller)
+	objectStore := storeFake.NewMockStore(controller)
+	key := store.Key{
+		Namespace:  replicaSet1.Namespace,
+		APIVersion: replicaSet1.APIVersion,
+		Kind:       replicaSet1.Kind,
 	}
+	objectStore.EXPECT().
+		List(gomock.Any(), key).
+		Return(testutil.ToUnstructuredList(t, replicaSet1, replicaSet2), nil)
+	dashConfig.EXPECT().ObjectStore().Return(objectStore)
 
-	rsKey, err := store.KeyFromObject(rs)
+	cq, err := New(dashConfig, SetResourcesFactory(func(ctx context.Context) ([]Resource, error) {
+		return []Resource{
+			{
+				GroupVersionKind: schema.GroupVersionKind{
+					Group:   replicaSet1.GroupVersionKind().Group,
+					Version: replicaSet1.GroupVersionKind().Version,
+					Kind:    replicaSet1.Kind,
+				},
+				Verbs: metav1.Verbs{"list", "watch"},
+			},
+			{
+				GroupVersionKind: schema.GroupVersionKind{
+					Group:   "group2",
+					Version: "version",
+					Kind:    "Kind",
+				},
+				Verbs: metav1.Verbs{"get"},
+			},
+		}, nil
+	}))
 	require.NoError(t, err)
-	rsKey.Name = ""
 
-	deploymentKey, err := store.KeyFromObject(deployment)
+	ctx := context.Background()
+	got, err := cq.Children(ctx, owner)
 	require.NoError(t, err)
-	deploymentKey.Name = ""
 
-	cases := []struct {
-		name     string
-		owner    metav1.Object
-		setup    func(t *testing.T, c *storeFake.MockStore, disco *queryerFake.MockDiscoveryInterface)
-		expected func(t *testing.T) []runtime.Object
-		isErr    bool
-	}{
-		{
-			name:  "in general",
-			owner: deployment,
-			setup: func(t *testing.T, o *storeFake.MockStore, disco *queryerFake.MockDiscoveryInterface) {
-				o.EXPECT().
-					List(gomock.Any(), gomock.Eq(deploymentKey)).
-					Return(testutil.ToUnstructuredList(t, deployment), nil)
-
-				o.EXPECT().
-					List(gomock.Any(), gomock.Eq(rsKey)).
-					Return(testutil.ToUnstructuredList(t, rs), nil)
-
-				disco.EXPECT().
-					ServerPreferredResources().
-					Return(resourceLists, nil)
-
-			},
-			expected: func(t *testing.T) []runtime.Object {
-				return []runtime.Object{testutil.ToUnstructured(t, rs)}
-			},
-		},
-		{
-			name:  "owner is nil",
-			owner: nil,
-			isErr: true,
-		},
-		{
-			name:  "fetch resource lists failure",
-			owner: deployment,
-			setup: func(t *testing.T, o *storeFake.MockStore, disco *queryerFake.MockDiscoveryInterface) {
-				disco.EXPECT().
-					ServerPreferredResources().
-					Return(nil, errors.New("failed")).AnyTimes()
-			},
-			isErr: true,
-		},
-		{
-			name:  "object store list fails",
-			owner: deployment,
-			setup: func(t *testing.T, o *storeFake.MockStore, disco *queryerFake.MockDiscoveryInterface) {
-				o.EXPECT().
-					List(gomock.Any(), gomock.Eq(deploymentKey)).
-					Return(nil, errors.New("failed")).Times(1)
-
-				o.EXPECT().
-					List(gomock.Any(), gomock.Eq(rsKey)).
-					Return(testutil.ToUnstructuredList(t, rs), nil)
-
-				disco.EXPECT().
-					ServerPreferredResources().
-					Return(resourceLists, nil).AnyTimes()
-			},
-			isErr: true,
-		},
+	expected := []runtime.Object{
+		testutil.ToUnstructured(t, replicaSet1),
 	}
-
-	for i := range cases {
-		tc := cases[i]
-		t.Run(tc.name, func(t *testing.T) {
-			controller := gomock.NewController(t)
-			defer controller.Finish()
-
-			o := storeFake.NewMockStore(controller)
-			discovery := queryerFake.NewMockDiscoveryInterface(controller)
-
-			if tc.setup != nil {
-				tc.setup(t, o, discovery)
-			}
-
-			cq := New(o, discovery)
-
-			ctx := context.Background()
-			got, err := cq.Children(ctx, tc.owner)
-			if tc.isErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-
-			assert.Equal(t, tc.expected(t), got)
-		})
-	}
+	assert.Equal(t, expected, got)
 }
 
 func TestCacheQueryer_Events(t *testing.T) {
@@ -221,14 +131,16 @@ func TestCacheQueryer_Events(t *testing.T) {
 			controller := gomock.NewController(t)
 			defer controller.Finish()
 
+			dashConfig := fake.NewMockDash(controller)
 			o := storeFake.NewMockStore(controller)
-			discovery := queryerFake.NewMockDiscoveryInterface(controller)
+			dashConfig.EXPECT().ObjectStore().Return(o)
 
 			if tc.setup != nil {
 				tc.setup(t, o)
 			}
 
-			oq := New(o, discovery)
+			oq, err := New(dashConfig)
+			require.NoError(t, err)
 
 			ctx := context.Background()
 			events, err := oq.Events(ctx, tc.object)
@@ -353,14 +265,16 @@ func TestCacheQueryer_IngressesForService(t *testing.T) {
 			controller := gomock.NewController(t)
 			defer controller.Finish()
 
+			dashConfig := fake.NewMockDash(controller)
 			o := storeFake.NewMockStore(controller)
-			discovery := queryerFake.NewMockDiscoveryInterface(controller)
+			dashConfig.EXPECT().ObjectStore().Return(o)
 
 			if tc.setup != nil {
 				tc.setup(t, o)
 			}
 
-			oq := New(o, discovery)
+			oq, err := New(dashConfig)
+			require.NoError(t, err)
 
 			ctx := context.Background()
 			got, err := oq.IngressesForService(ctx, tc.service)
@@ -432,14 +346,16 @@ func TestCacheQueryer_OwnerReference(t *testing.T) {
 			controller := gomock.NewController(t)
 			defer controller.Finish()
 
+			dashConfig := fake.NewMockDash(controller)
 			o := storeFake.NewMockStore(controller)
-			discovery := queryerFake.NewMockDiscoveryInterface(controller)
+			dashConfig.EXPECT().ObjectStore().Return(o)
 
 			if tc.setup != nil {
 				tc.setup(t, o)
 			}
 
-			oq := New(o, discovery)
+			oq, err := New(dashConfig)
+			require.NoError(t, err)
 
 			ctx := context.Background()
 			got, err := oq.OwnerReference(ctx, "default", ownerReference)
@@ -536,14 +452,16 @@ func TestCacheQueryer_PodsForService(t *testing.T) {
 			controller := gomock.NewController(t)
 			defer controller.Finish()
 
+			dashConfig := fake.NewMockDash(controller)
 			o := storeFake.NewMockStore(controller)
-			discovery := queryerFake.NewMockDiscoveryInterface(controller)
+			dashConfig.EXPECT().ObjectStore().Return(o)
 
 			if tc.setup != nil {
 				tc.setup(t, o)
 			}
 
-			oq := New(o, discovery)
+			oq, err := New(dashConfig)
+			require.NoError(t, err)
 
 			ctx := context.Background()
 			got, err := oq.PodsForService(ctx, tc.service)
@@ -692,14 +610,16 @@ func TestCacheQueryer_ServicesForIngress(t *testing.T) {
 			controller := gomock.NewController(t)
 			defer controller.Finish()
 
+			dashConfig := fake.NewMockDash(controller)
 			o := storeFake.NewMockStore(controller)
-			discovery := queryerFake.NewMockDiscoveryInterface(controller)
+			dashConfig.EXPECT().ObjectStore().Return(o)
 
 			if tc.setup != nil {
 				tc.setup(t, o)
 			}
 
-			oq := New(o, discovery)
+			oq, err := New(dashConfig)
+			require.NoError(t, err)
 
 			ctx := context.Background()
 			services, err := oq.ServicesForIngress(ctx, tc.ingress)
@@ -802,14 +722,16 @@ func TestCacheQueryer_ServicesForPods(t *testing.T) {
 			controller := gomock.NewController(t)
 			defer controller.Finish()
 
+			dashConfig := fake.NewMockDash(controller)
 			o := storeFake.NewMockStore(controller)
-			discovery := queryerFake.NewMockDiscoveryInterface(controller)
+			dashConfig.EXPECT().ObjectStore().Return(o)
 
 			if tc.setup != nil {
 				tc.setup(t, o)
 			}
 
-			oq := New(o, discovery)
+			oq, err := New(dashConfig)
+			require.NoError(t, err)
 
 			ctx := context.Background()
 			services, err := oq.ServicesForPod(ctx, tc.pod)
@@ -840,16 +762,17 @@ func TestObjectStoreQueryer_ServiceAccountForPod(t *testing.T) {
 	controller := gomock.NewController(t)
 	defer controller.Finish()
 
+	dashConfig := fake.NewMockDash(controller)
 	o := storeFake.NewMockStore(controller)
 	key, err := store.KeyFromObject(serviceAccount)
 	require.NoError(t, err)
 	o.EXPECT().
 		Get(gomock.Any(), key).
 		Return(testutil.ToUnstructured(t, serviceAccount), nil)
+	dashConfig.EXPECT().ObjectStore().Return(o)
 
-	discovery := queryerFake.NewMockDiscoveryInterface(controller)
-
-	q := New(o, discovery)
+	q, err := New(dashConfig)
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	got, err := q.ServiceAccountForPod(ctx, pod)
@@ -935,10 +858,12 @@ func TestCacheQueryer_getSelector(t *testing.T) {
 			controller := gomock.NewController(t)
 			defer controller.Finish()
 
+			dashConfig := fake.NewMockDash(controller)
 			o := storeFake.NewMockStore(controller)
-			discovery := queryerFake.NewMockDiscoveryInterface(controller)
+			dashConfig.EXPECT().ObjectStore().Return(o)
 
-			oq := New(o, discovery)
+			oq, err := New(dashConfig)
+			require.NoError(t, err)
 
 			got, err := oq.getSelector(tc.object)
 			if tc.isErr {

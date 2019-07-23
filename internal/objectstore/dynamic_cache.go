@@ -228,6 +228,10 @@ func (dc *DynamicCache) currentInformer(ctx context.Context, key store.Key) (inf
 		return informer, nil
 	}
 
+	if !kcache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
+		return nil, errors.Errorf("unable to sync %s informer cache", key.String())
+	}
+
 	dc.seenGVKs.setSeen(key.Namespace, gvk, true)
 
 	return informer, nil

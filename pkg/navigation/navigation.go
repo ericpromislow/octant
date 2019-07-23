@@ -70,26 +70,23 @@ func New(title, path string, options ...Option) (*Navigation, error) {
 func CRDEntries(ctx context.Context, prefix, namespace string, objectStore store.Store) ([]Navigation, error) {
 	var list []Navigation
 
-	crdNames, err := CustomResourceDefinitionNames(ctx, objectStore)
+	crds, err := CustomResourceDefinitions(ctx, objectStore)
 	if err != nil {
 		return nil, errors.Wrap(err, "retrieving CRD names")
 	}
 
-	sort.Strings(crdNames)
+	sort.Slice(crds, func(i, j int) bool {
+		return crds[i].Name < crds[j].Name
+	})
 
-	for _, name := range crdNames {
-		crd, err := CustomResourceDefinition(ctx, name, objectStore)
-		if err != nil {
-			return nil, errors.Wrapf(err, "load %q custom resource definition", name)
-		}
-
-		objects, err := ListCustomResources(ctx, crd, namespace, objectStore, nil)
+	for _, crd := range crds {
+		objects, err := ListCustomResources(ctx, &crd, namespace, objectStore, nil)
 		if err != nil {
 			return nil, err
 		}
 
 		if len(objects) > 0 {
-			navigation, err := New(name, path.Join(prefix, name), SetNavigationIcon(icon.CustomResourceDefinition))
+			navigation, err := New(crd.Name, path.Join(prefix, crd.Name), SetNavigationIcon(icon.CustomResourceDefinition))
 			if err != nil {
 				return nil, err
 			}
@@ -101,15 +98,15 @@ func CRDEntries(ctx context.Context, prefix, namespace string, objectStore store
 	return list, nil
 }
 
-// CustomResourceDefinitionNames returns the available custom resource definition names.
-func CustomResourceDefinitionNames(ctx context.Context, o store.Store) ([]string, error) {
+// CustomResourceDefinitions returns the available custom resource definition names.
+func CustomResourceDefinitions(ctx context.Context, o store.Store) ([]apiextv1beta1.CustomResourceDefinition, error) {
 	key := store.Key{
 		APIVersion: "apiextensions.k8s.io/v1beta1",
 		Kind:       "CustomResourceDefinition",
 	}
 
 	if err := o.HasAccess(ctx, key, "list"); err != nil {
-		return []string{}, nil
+		return []apiextv1beta1.CustomResourceDefinition{}, nil
 	}
 
 	rawList, err := o.List(ctx, key)
@@ -117,7 +114,7 @@ func CustomResourceDefinitionNames(ctx context.Context, o store.Store) ([]string
 		return nil, errors.Wrap(err, "listing CRDs")
 	}
 
-	var list []string
+	var list []apiextv1beta1.CustomResourceDefinition
 
 	for _, object := range rawList {
 		crd := &apiextv1beta1.CustomResourceDefinition{}
@@ -126,7 +123,7 @@ func CustomResourceDefinitionNames(ctx context.Context, o store.Store) ([]string
 			return nil, errors.Wrap(err, "crd conversion failed")
 		}
 
-		list = append(list, crd.Name)
+		list = append(list, *crd)
 	}
 
 	return list, nil

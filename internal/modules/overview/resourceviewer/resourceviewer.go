@@ -18,7 +18,6 @@ import (
 	"github.com/vmware/octant/internal/config"
 	"github.com/vmware/octant/internal/modules/overview/objectvisitor"
 	"github.com/vmware/octant/internal/queryer"
-	"github.com/vmware/octant/internal/util/kubernetes"
 	"github.com/vmware/octant/pkg/store"
 	"github.com/vmware/octant/pkg/view/component"
 )
@@ -75,8 +74,10 @@ func (rv *ResourceViewer) Visit(ctx context.Context, object runtime.Object) (*co
 		return nil, errors.Wrap(err, "Create handler")
 	}
 
-	if err := rv.visitor.Visit(ctx, object, handler); err != nil {
-		return nil, errors.Wrapf(err, "error unable to visit object %s", kubernetes.PrintObject(object))
+	newCtx := context.Background()
+
+	if err := rv.visitor.Visit(newCtx, object, handler); err != nil {
+		return nil, err
 	}
 
 	accessor := meta.NewAccessor()
@@ -117,7 +118,7 @@ func CachedResourceViewer(object runtime.Object, dashConfig config.Dash, q query
 
 		go func() {
 			c, err := rv.Visit(ctx, copyObject)
-			event.Err = err
+			event.Err = errors.WithMessage(err, "visiting object failed")
 			event.Component = c
 			cacheChan <- event
 		}()

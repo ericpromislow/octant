@@ -65,17 +65,15 @@ func (g *realGenerator) Generate(ctx context.Context, path, prefix, namespace st
 		return emptyContentResponse, err
 	}
 
-	discoveryInterface, err := g.dashConfig.ClusterClient().DiscoveryClient()
-	if err != nil {
-		return emptyContentResponse, err
-	}
-
 	linkGenerator, err := link.NewFromDashConfig(g.dashConfig)
 	if err != nil {
 		return emptyContentResponse, err
 	}
 
-	q := queryer.New(g.dashConfig.ObjectStore(), discoveryInterface)
+	q, err := queryer.New(g.dashConfig)
+	if err != nil {
+		return describer.EmptyContentResponse, err
+	}
 
 	loaderFactory := describer.NewObjectLoaderFactory(g.dashConfig)
 
