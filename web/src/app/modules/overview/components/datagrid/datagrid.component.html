@@ -11,7 +11,9 @@
                 </ng-template>
             </clr-dg-placeholder>
             <clr-dg-column *ngFor="let columnName of columns; trackBy: identifyColumn">
-                {{ columnName }}
+                <ng-container *clrDgHideableColumn="{hidden: false}">
+                    {{ columnName }}
+                </ng-container>
                 <clr-dg-filter *ngIf="hasFilter(columnName)">
                     <app-content-filter
                             [column]="columnName"
