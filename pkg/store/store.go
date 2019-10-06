@@ -41,11 +41,12 @@ type Store interface {
 
 // Key is a key for the object store.
 type Key struct {
-	Namespace  string
-	APIVersion string
-	Kind       string
-	Name       string
-	Selector   *labels.Set
+	Namespace     string
+	APIVersion    string
+	Kind          string
+	Name          string
+	Selector      *labels.Set
+	FieldSelector string
 }
 
 func (k Key) String() string {

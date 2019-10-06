@@ -12,8 +12,11 @@ import (
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/vmware/octant/pkg/store"
 	"github.com/vmware/octant/pkg/view/component"
 )
 
@@ -78,6 +81,9 @@ func NodeHandler(ctx context.Context, node *corev1.Node, options Options) (compo
 	}
 	if err := nh.Conditions(options); err != nil {
 		return nil, errors.Wrap(err, "print node conditions")
+	}
+	if err := nh.Pods(options); err != nil {
+		return nil, errors.Wrap(err, "print node pods")
 	}
 	if err := nh.Images(options); err != nil {
 		return nil, errors.Wrap(err, "print node images")
@@ -356,6 +362,7 @@ type nodeObject interface {
 	Resources(options Options) error
 	Conditions(options Options) error
 	Images(options Options) error
+	Pods(options Options) error
 }
 
 type nodeHandler struct {
@@ -365,6 +372,7 @@ type nodeHandler struct {
 	resourcesFunc  func(*corev1.Node, Options) (*component.Table, error)
 	conditionsFunc func(*corev1.Node, Options) (*component.Table, error)
 	imagesFunc     func(*corev1.Node, Options) (*component.Table, error)
+	podsFunc       func(*corev1.Node, Options) (*component.Table, error)
 	object         *Object
 }
 
@@ -386,6 +394,7 @@ func newNodeHandler(node *corev1.Node, object *Object) (*nodeHandler, error) {
 		resourcesFunc:  defaultNodeResources,
 		conditionsFunc: defaultNodeConditions,
 		imagesFunc:     defaultNodeImages,
+		podsFunc:       defaultNodePods,
 		object:         object,
 	}
 	return nh, nil
@@ -474,4 +483,51 @@ func (n *nodeHandler) Images(options Options) error {
 
 func defaultNodeImages(node *corev1.Node, options Options) (*component.Table, error) {
 	return createNodeImagesView(node)
+}
+
+func (n *nodeHandler) Pods(options Options) error {
+	if n.node == nil {
+		return errors.New("can't display pods for nil node")
+	}
+
+	n.object.RegisterItems(ItemDescriptor{
+		Width: component.WidthFull,
+		Func: func() (component.Component, error) {
+			return n.podsFunc(n.node, options)
+		},
+	})
+	return nil
+}
+
+func defaultNodePods(node *corev1.Node, options Options) (*component.Table, error) {
+	objectStore := options.DashConfig.ObjectStore()
+	key := store.Key{
+		Namespace:  "20190924-demo",
+		APIVersion: "v1",
+		Kind:       "Pod",
+	}
+	allPods, _, err := objectStore.List(context.TODO(), key)
+	if err != nil {
+		return nil, err
+	}
+
+	var podList []runtime.Object
+
+	for i := range allPods.Items {
+		nodeName, found, err := unstructured.NestedString(allPods.Items[i].Object, "spec", "nodeName")
+		if err != nil {
+			return nil, err
+		}
+
+		if found && nodeName == node.Name {
+			podList = append(podList, &allPods.Items[i])
+		}
+	}
+
+	c, err := createRollingPodListView(context.TODO(), podList, options)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.(*component.Table), nil
 }
