@@ -26,10 +26,26 @@ import (
 // UpdateFn is a function that is called when
 type UpdateFn func(store Store)
 
+type Option int
+
+const (
+	Direct Option = 1
+)
+
+func HasOption(option Option, list []Option) bool {
+	for i := range list {
+		if option == list[i] {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Store stores Kubernetes objects.
 type Store interface {
 	List(ctx context.Context, key Key) (list *unstructured.UnstructuredList, loading bool, err error)
-	Get(ctx context.Context, key Key) (object *unstructured.Unstructured, found bool, err error)
+	Get(ctx context.Context, key Key, options ...Option) (object *unstructured.Unstructured, found bool, err error)
 	Delete(ctx context.Context, key Key) error
 	Watch(ctx context.Context, key Key, handler cache.ResourceEventHandler) error
 	Unwatch(ctx context.Context, groupVersionKinds ...schema.GroupVersionKind) error

@@ -8,6 +8,7 @@ package printer
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -30,6 +31,7 @@ var (
 	podColsWithLabels    = component.NewTableCols("Name", "Labels", "Ready", "Phase", "Restarts", "Node", "Age")
 	podColsWithOutLabels = component.NewTableCols("Name", "Ready", "Phase", "Restarts", "Node", "Age")
 	podResourceCols      = component.NewTableCols("Container", "Request: Memory", "Request: CPU", "Limit: Memory", "Limit: CPU")
+	podMetricsCols       = component.NewTableCols("Container", "Memory", "CPU")
 )
 
 // PodListHandler is a printFunc that prints pods
@@ -628,6 +630,11 @@ var _ podObject = (*podHandler)(nil)
 var defaultPodHandlerAdditionalItems = []func(*corev1.Pod, Options) ObjectPrinterFunc{
 	func(pod *corev1.Pod, options Options) ObjectPrinterFunc {
 		return func() (component.Component, error) {
+			return printPodMetrics(pod, options)
+		}
+	},
+	func(pod *corev1.Pod, options Options) ObjectPrinterFunc {
+		return func() (component.Component, error) {
 			return printPodResources(pod.Spec)
 		}
 	},
@@ -770,4 +777,53 @@ func addPodTableFilters(table *component.Table) {
 		Values:   []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"},
 		Selected: []string{"Pending", "Running"},
 	})
+}
+
+func printPodMetrics(pod *corev1.Pod, options Options) (component.Component, error) {
+	if pod == nil {
+		return nil, fmt.Errorf("can't load metrics for nil pod")
+	}
+
+	key := store.Key{
+		Namespace:  pod.Namespace,
+		APIVersion: "metrics.k8s.io/v1beta1",
+		Kind:       "PodMetrics",
+		Name:       pod.Name,
+	}
+
+	objectStore := options.DashConfig.ObjectStore()
+
+	object, found, err := objectStore.Get(context.TODO(), key, store.Direct)
+	if err != nil {
+		return nil, fmt.Errorf("load pod metrics for %s: %w", pod.Name, err)
+	}
+
+	table := component.NewTable("Metrics", "No metrics were found", podMetricsCols)
+
+	if !found {
+		return table, nil
+	}
+
+	metric, err := loadPodMetric(object)
+	if err != nil {
+		return nil, fmt.Errorf("load pod metric: %w", err)
+	}
+
+	var containerNames []string
+	for containerName := range metric.containers {
+		containerNames = append(containerNames, containerName)
+	}
+	sort.Strings(containerNames)
+
+	for _, containerName := range containerNames {
+		cm := metric.containers[containerName]
+		row := component.TableRow{
+			"Container": component.NewText(containerName),
+			"Memory":    component.NewText(cm.memory),
+			"CPU":       component.NewText(cm.cpu),
+		}
+		table.Add(row)
+	}
+
+	return table, nil
 }

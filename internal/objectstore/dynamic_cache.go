@@ -276,7 +276,7 @@ type getter interface {
 }
 
 // Get retrieves a single object.
-func (dc *DynamicCache) Get(ctx context.Context, key store.Key) (*unstructured.Unstructured, bool, error) {
+func (dc *DynamicCache) Get(ctx context.Context, key store.Key, options ...store.Option) (*unstructured.Unstructured, bool, error) {
 	ctx, span := trace.StartSpan(ctx, "dynamicCacheGet")
 	defer span.End()
 
@@ -291,8 +291,12 @@ func (dc *DynamicCache) Get(ctx context.Context, key store.Key) (*unstructured.U
 		trace.StringAttribute("name", key.Name),
 	}, "get key")
 
-	object, err := dc.getFromInformer(ctx, key)
+	g := dc.getFromInformer
+	if store.HasOption(store.Direct, options) {
+		g = dc.getFromDynamicClient
+	}
 
+	object, err := g(ctx, key)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil, false, nil
