@@ -6,11 +6,70 @@
 package printer
 
 import (
+	"context"
 	"fmt"
+	"sort"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/vmware/octant/pkg/store"
+	"github.com/vmware/octant/pkg/view/component"
 )
+
+var (
+	podMetricsCols = component.NewTableCols("Container", "Memory", "CPU")
+)
+
+func printPodMetrics(ctx context.Context, pod *corev1.Pod, options Options) (component.Component, error) {
+	if pod == nil {
+		return nil, fmt.Errorf("can't load metrics for nil pod")
+	}
+
+	key := store.Key{
+		Namespace:  pod.Namespace,
+		APIVersion: "metrics.k8s.io/v1beta1",
+		Kind:       "PodMetrics",
+		Name:       pod.Name,
+	}
+
+	objectStore := options.DashConfig.ObjectStore()
+
+	object, found, err := objectStore.Get(ctx, key, store.Direct)
+	if err != nil {
+		return nil, fmt.Errorf("load pod metrics for %s: %w", pod.Name, err)
+	}
+
+	table := component.NewTable("Metrics", "No metrics were found", podMetricsCols)
+
+	if !found {
+		return table, nil
+	}
+
+	metric, err := loadPodMetric(object)
+	if err != nil {
+		return nil, fmt.Errorf("load pod metric: %w", err)
+	}
+
+	var containerNames []string
+	for containerName := range metric.containers {
+		containerNames = append(containerNames, containerName)
+	}
+	sort.Strings(containerNames)
+
+	for _, containerName := range containerNames {
+		cm := metric.containers[containerName]
+		row := component.TableRow{
+			"Container": component.NewText(containerName),
+			"Memory":    component.NewText(cm.memory),
+			"CPU":       component.NewText(cm.cpu),
+		}
+		table.Add(row)
+	}
+
+	return table, nil
+}
 
 type podMetric struct {
 	name       string
@@ -56,24 +115,6 @@ func loadPodMetric(object *unstructured.Unstructured) (podMetric, error) {
 	}
 
 	return pm, nil
-}
-
-func loadPodMetrics(list *unstructured.UnstructuredList) ([]podMetric, error) {
-	if list == nil {
-		return nil, fmt.Errorf("list is nil")
-	}
-
-	var metrics []podMetric
-
-	for i := range list.Items {
-		pm, err := loadPodMetric(&list.Items[i])
-		if err != nil {
-			return nil, err
-		}
-		metrics = append(metrics, pm)
-	}
-
-	return metrics, nil
 }
 
 func loadContainerMetric(object map[string]interface{}) (string, containerMetric, error) {

@@ -8,7 +8,6 @@ package printer
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -31,7 +30,6 @@ var (
 	podColsWithLabels    = component.NewTableCols("Name", "Labels", "Ready", "Phase", "Restarts", "Node", "Age")
 	podColsWithOutLabels = component.NewTableCols("Name", "Ready", "Phase", "Restarts", "Node", "Age")
 	podResourceCols      = component.NewTableCols("Container", "Request: Memory", "Request: CPU", "Limit: Memory", "Limit: CPU")
-	podMetricsCols       = component.NewTableCols("Container", "Memory", "CPU")
 )
 
 // PodListHandler is a printFunc that prints pods
@@ -130,7 +128,7 @@ func PodHandler(ctx context.Context, pod *corev1.Pod, options Options) (componen
 	if err := ph.Containers(options); err != nil {
 		return nil, errors.Wrap(err, "print pod containers")
 	}
-	if err := ph.Additional(options); err != nil {
+	if err := ph.Additional(ctx, options); err != nil {
 		return nil, errors.Wrap(err, "print pod additional items")
 	}
 
@@ -560,15 +558,6 @@ func createPodConditionsView(pod *corev1.Pod) (*component.Table, error) {
 	return table, nil
 }
 
-func hasOwnerReference(ownerReferences []metav1.OwnerReference, kind string) bool {
-	for _, ownerReference := range ownerReferences {
-		if ownerReference.Kind == kind {
-			return true
-		}
-	}
-	return false
-}
-
 func printPodResources(podSpec corev1.PodSpec) (*component.Table, error) {
 	table := component.NewTable("Resources", "Pod has no resource needs", podResourceCols)
 
@@ -612,7 +601,7 @@ type podObject interface {
 	Conditions(options Options) error
 	InitContainers(options Options) error
 	Containers(options Options) error
-	Additional(options Options) error
+	Additional(ctx context.Context, options Options) error
 }
 
 type podHandler struct {
@@ -621,34 +610,34 @@ type podHandler struct {
 	summaryFunc     func(*corev1.Pod, Options) (*component.Summary, error)
 	conditionsFunc  func(*corev1.Pod, Options) (*component.Table, error)
 	containerFunc   func(pod *corev1.Pod, container *corev1.Container, isInit bool, options Options) (*component.Summary, error)
-	additionalFuncs []func(*corev1.Pod, Options) ObjectPrinterFunc
+	additionalFuncs []func(context.Context, *corev1.Pod, Options) ObjectPrinterFunc
 	object          *Object
 }
 
 var _ podObject = (*podHandler)(nil)
 
-var defaultPodHandlerAdditionalItems = []func(*corev1.Pod, Options) ObjectPrinterFunc{
-	func(pod *corev1.Pod, options Options) ObjectPrinterFunc {
+var defaultPodHandlerAdditionalItems = []func(context.Context, *corev1.Pod, Options) ObjectPrinterFunc{
+	func(ctx context.Context, pod *corev1.Pod, options Options) ObjectPrinterFunc {
 		return func() (component.Component, error) {
-			return printPodMetrics(pod, options)
+			return printPodMetrics(ctx, pod, options)
 		}
 	},
-	func(pod *corev1.Pod, options Options) ObjectPrinterFunc {
+	func(ctx context.Context, pod *corev1.Pod, options Options) ObjectPrinterFunc {
 		return func() (component.Component, error) {
 			return printPodResources(pod.Spec)
 		}
 	},
-	func(pod *corev1.Pod, options Options) ObjectPrinterFunc {
+	func(ctx context.Context, pod *corev1.Pod, options Options) ObjectPrinterFunc {
 		return func() (component.Component, error) {
 			return printVolumes(pod.Spec.Volumes)
 		}
 	},
-	func(pod *corev1.Pod, options Options) ObjectPrinterFunc {
+	func(ctx context.Context, pod *corev1.Pod, options Options) ObjectPrinterFunc {
 		return func() (component.Component, error) {
 			return printTolerations(pod.Spec)
 		}
 	},
-	func(pod *corev1.Pod, options Options) ObjectPrinterFunc {
+	func(ctx context.Context, pod *corev1.Pod, options Options) ObjectPrinterFunc {
 		return func() (component.Component, error) {
 			return printAffinity(pod.Spec)
 		}
@@ -757,13 +746,13 @@ func defaultPodContainers(pod *corev1.Pod, container *corev1.Container, isInit b
 	return creator.Create()
 }
 
-func (p *podHandler) Additional(options Options) error {
+func (p *podHandler) Additional(ctx context.Context, options Options) error {
 	var itemDescriptors []ItemDescriptor
 
 	for i := range p.additionalFuncs {
 		itemDescriptors = append(itemDescriptors, ItemDescriptor{
 			Width: component.WidthHalf,
-			Func:  p.additionalFuncs[i](p.pod, options),
+			Func:  p.additionalFuncs[i](ctx, p.pod, options),
 		})
 	}
 
@@ -777,53 +766,4 @@ func addPodTableFilters(table *component.Table) {
 		Values:   []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"},
 		Selected: []string{"Pending", "Running"},
 	})
-}
-
-func printPodMetrics(pod *corev1.Pod, options Options) (component.Component, error) {
-	if pod == nil {
-		return nil, fmt.Errorf("can't load metrics for nil pod")
-	}
-
-	key := store.Key{
-		Namespace:  pod.Namespace,
-		APIVersion: "metrics.k8s.io/v1beta1",
-		Kind:       "PodMetrics",
-		Name:       pod.Name,
-	}
-
-	objectStore := options.DashConfig.ObjectStore()
-
-	object, found, err := objectStore.Get(context.TODO(), key, store.Direct)
-	if err != nil {
-		return nil, fmt.Errorf("load pod metrics for %s: %w", pod.Name, err)
-	}
-
-	table := component.NewTable("Metrics", "No metrics were found", podMetricsCols)
-
-	if !found {
-		return table, nil
-	}
-
-	metric, err := loadPodMetric(object)
-	if err != nil {
-		return nil, fmt.Errorf("load pod metric: %w", err)
-	}
-
-	var containerNames []string
-	for containerName := range metric.containers {
-		containerNames = append(containerNames, containerName)
-	}
-	sort.Strings(containerNames)
-
-	for _, containerName := range containerNames {
-		cm := metric.containers[containerName]
-		row := component.TableRow{
-			"Container": component.NewText(containerName),
-			"Memory":    component.NewText(cm.memory),
-			"CPU":       component.NewText(cm.cpu),
-		}
-		table.Add(row)
-	}
-
-	return table, nil
 }
