@@ -21,23 +21,14 @@ import (
 	"github.com/vmware-tanzu/octant/pkg/action"
 )
 
-//go:generate mockgen -destination=./fake/mock_state_manager.go -package=fake github.com/vmware-tanzu/octant/internal/api StateManager
-//go:generate mockgen -destination=./fake/mock_octant_client.go -package=fake github.com/vmware-tanzu/octant/internal/api OctantClient
-
 var (
 	reContentPathNamespace = regexp.MustCompile(`^/namespace/(?P<namespace>[^/]+)/?`)
 )
 
-// StateManager manages states for WebsocketState.
-type StateManager interface {
-	Handlers() []octant.ClientRequestHandler
-	Start(ctx context.Context, state octant.State, s OctantClient)
-}
-
-func defaultStateManagers(clientID string, dashConfig config.Dash) []StateManager {
+func defaultStateManagers(clientID string, dashConfig config.Dash) []octant.StateManager {
 	logger := dashConfig.Logger().With("client-id", clientID)
 
-	return []StateManager{
+	return []octant.StateManager{
 		NewContentManager(dashConfig.ModuleManager(), logger),
 		NewFilterManager(),
 		NewNavigationManager(dashConfig),
@@ -45,12 +36,6 @@ func defaultStateManagers(clientID string, dashConfig config.Dash) []StateManage
 		NewContextManager(dashConfig),
 		NewActionRequestManager(),
 	}
-}
-
-// OctantClient is an OctantClient.
-type OctantClient interface {
-	Send(event octant.Event)
-	ID() string
 }
 
 type atomicString struct {
@@ -83,7 +68,7 @@ func (s *atomicString) set(v string) {
 type WebsocketStateOption func(w *WebsocketState)
 
 // WebsocketStateManagers configures WebsocketState's state managers.
-func WebsocketStateManagers(managers []StateManager) WebsocketStateOption {
+func WebsocketStateManagers(managers []octant.StateManager) WebsocketStateOption {
 	return func(w *WebsocketState) {
 		w.managers = managers
 	}
@@ -92,7 +77,7 @@ func WebsocketStateManagers(managers []StateManager) WebsocketStateOption {
 // WebsocketState manages state for a websocket client.
 type WebsocketState struct {
 	dashConfig         config.Dash
-	wsClient           OctantClient
+	wsClient           octant.StateClient
 	contentPath        *atomicString
 	namespace          *atomicString
 	filters            []octant.Filter
@@ -100,7 +85,7 @@ type WebsocketState struct {
 	namespaceUpdates   map[string]octant.NamespaceUpdateFunc
 
 	mu               sync.RWMutex
-	managers         []StateManager
+	managers         []octant.StateManager
 	actionDispatcher ActionDispatcher
 
 	startCtx           context.Context
@@ -110,7 +95,7 @@ type WebsocketState struct {
 var _ octant.State = (*WebsocketState)(nil)
 
 // NewWebsocketState creates an instance of WebsocketState.
-func NewWebsocketState(dashConfig config.Dash, actionDispatcher ActionDispatcher, wsClient OctantClient, options ...WebsocketStateOption) *WebsocketState {
+func NewWebsocketState(dashConfig config.Dash, actionDispatcher ActionDispatcher, wsClient octant.StateClient, options ...WebsocketStateOption) *WebsocketState {
 	defaultNamespace := dashConfig.DefaultNamespace()
 
 	w := &WebsocketState{
@@ -153,9 +138,19 @@ func (c *WebsocketState) Handlers() []octant.ClientRequestHandler {
 	return handlers
 }
 
+// Client returns the state client.
+func (c *WebsocketState) Client() octant.StateClient {
+	return c.wsClient
+}
+
 // Dispatch dispatches a message.
 func (c *WebsocketState) Dispatch(ctx context.Context, actionName string, payload action.Payload) error {
 	return c.actionDispatcher.Dispatch(ctx, c, actionName, payload)
+}
+
+// DefaultContentPath returns the default content path.
+func (c *WebsocketState) DefaultContentPath() string {
+	return path.Join("overview", "namespace", c.namespace.get())
 }
 
 // SetContentPath sets the content path.
@@ -234,7 +229,7 @@ func (c *WebsocketState) SetNamespace(namespace string) {
 		Debugf("setting namespace")
 	c.namespace.set(namespace)
 
-	newPath := updateContentPathNamespace(c.contentPath.get(), namespace)
+	newPath := updateNamespaceInContentPath(c.contentPath.get(), namespace)
 	if newPath != c.contentPath.get() {
 		c.SetContentPath(newPath)
 	}
@@ -358,7 +353,7 @@ func (c *WebsocketState) SendAlert(alert action.Alert) {
 	c.wsClient.Send(CreateAlertUpdate(alert))
 }
 
-func updateContentPathNamespace(in, namespace string) string {
+func updateNamespaceInContentPath(in, namespace string) string {
 	parts := strings.Split(in, "/")
 	if in == "" {
 		return ""
@@ -369,6 +364,11 @@ func updateContentPathNamespace(in, namespace string) string {
 		return path.Join(parts...)
 	}
 	return in
+}
+
+// CreateStream creates a content stream for contentPath on channel channelID.
+func (c *WebsocketState) CreateStream(contentPath string, channelID string) {
+	panic("implement me")
 }
 
 // CreateFiltersUpdate creates a filters update event.

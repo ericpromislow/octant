@@ -1,21 +1,36 @@
 import { Injectable } from '@angular/core';
 import { WebsocketService } from '../websocket/websocket.service';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Observable, Observer, Subject } from 'rxjs';
 import { Content, ContentResponse } from '../../../../models/content';
-import { ActivatedRoute, Params, Router } from '@angular/router';
+import { Params, Router } from '@angular/router';
 import {
   Filter,
   LabelFilterService,
 } from '../../../../services/label-filter/label-filter.service';
 import { NamespaceService } from '../../../../services/namespace/namespace.service';
+import { take } from 'rxjs/operators';
 
 export const ContentUpdateMessage = 'content';
+export const ChannelContentUpdateMessage = 'channelContent';
+export const ChannelContentDestroyMessage = 'channelDestroy';
 
 export interface ContentUpdate {
   content: Content;
   namespace: string;
   contentPath: string;
   queryParams: { [key: string]: string[] };
+}
+
+export interface ChannelContentUpdate {
+  content: Content;
+  namespace: string;
+  contentPath: string;
+  channelID: string;
+  queryParams: { [key: string]: string[] };
+}
+
+export interface ChannelDestroyUpdate {
+  channelID: string;
 }
 
 const emptyContentResponse: ContentResponse = {
@@ -28,6 +43,8 @@ const emptyContentResponse: ContentResponse = {
 export class ContentService {
   defaultPath = new BehaviorSubject<string>('');
   current = new BehaviorSubject<ContentResponse>(emptyContentResponse);
+  channelUpdate = new Subject<ChannelContentUpdate>();
+  channelDestroy = new Subject<ChannelDestroyUpdate>();
 
   private previousContentPath = '';
 
@@ -42,9 +59,10 @@ export class ContentService {
     private labelFilterService: LabelFilterService,
     private namespaceService: NamespaceService
   ) {
-    websocketService.registerHandler(ContentUpdateMessage, data => {
-      const response = data as ContentUpdate;
-      this.setContent(response.content);
+    websocketService.registerHandler(ChannelContentUpdateMessage, data => {
+      const response = data as ChannelContentUpdate;
+
+      this.channelUpdate.next(response);
       namespaceService.setNamespace(response.namespace);
 
       if (response.contentPath) {
@@ -61,24 +79,72 @@ export class ContentService {
       }
     });
 
+    websocketService.registerHandler(ChannelContentDestroyMessage, data => {
+      const response = data as ChannelDestroyUpdate;
+      this.channelDestroy.next(response);
+    });
+
     labelFilterService.filters.subscribe(filters => {
       this.filters = filters;
     });
   }
 
-  setContentPath(contentPath: string, params: Params) {
-    if (!contentPath) {
-      contentPath = '';
-    }
+  contentFor(contentPath: string, params: Params, cancel: Subject<boolean>) {
+    const channelID = contentPath;
+    let namespace =
+      this.namespaceService.activeNamespace.getValue() || 'default';
 
-    const payload = { contentPath, params };
-    this.websocketService.sendMessage('setContentPath', payload);
+    this.createContentStream(contentPath, channelID, params, namespace);
+
+    return new Observable((observer: Observer<ContentResponse>) => {
+      const updateSubscriber = this.channelUpdate.subscribe(channelUpdate => {
+        if (channelUpdate.channelID !== channelID) {
+          return;
+        }
+
+        observer.next(channelUpdate);
+      });
+
+      this.namespaceService.activeNamespace.subscribe(newNamespace => {
+        if (namespace !== newNamespace) {
+          console.log(`setting namespace to ${newNamespace} (${namespace})`);
+          this.destroyContentStream(channelID);
+          this.createContentStream(
+            contentPath,
+            channelID,
+            params,
+            newNamespace
+          );
+          namespace = newNamespace;
+        }
+      });
+
+      this.channelDestroy.subscribe(channelDestroy => {
+        console.log(`channel destroyed`, { channelDestroy });
+        if (updateSubscriber) {
+          updateSubscriber.unsubscribe();
+          observer.complete();
+        }
+      });
+
+      cancel.pipe(take(1)).subscribe(_ => {
+        this.destroyContentStream(channelID);
+      });
+    });
   }
 
-  private setContent(content: Content) {
-    const contentResponse: ContentResponse = {
-      content,
-    };
-    this.current.next(contentResponse);
+  private createContentStream(
+    contentPath: string,
+    channelID: string,
+    params: Params,
+    namespace: string
+  ) {
+    const payload = { contentPath, channelID, params, namespace };
+    this.websocketService.sendMessage('createContentStream', payload);
+  }
+
+  private destroyContentStream(channelID: string) {
+    const destroyPayload = { channelID };
+    this.websocketService.sendMessage('destroyContentStream', destroyPayload);
   }
 }

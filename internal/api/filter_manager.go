@@ -28,7 +28,7 @@ const (
 type FilterManager struct {
 }
 
-var _ StateManager = (*FilterManager)(nil)
+var _ octant.StateManager = (*FilterManager)(nil)
 
 // NewFilterManager creates an instance of FilterManager.
 func NewFilterManager() *FilterManager {
@@ -36,7 +36,7 @@ func NewFilterManager() *FilterManager {
 }
 
 // Start starts the manager. Current is a no-op.
-func (fm *FilterManager) Start(ctx context.Context, state octant.State, s OctantClient) {
+func (fm *FilterManager) Start(ctx context.Context, state octant.State, s octant.StateClient) {
 }
 
 // Handlers returns a slice of handlers.

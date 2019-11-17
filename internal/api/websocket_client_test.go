@@ -49,7 +49,7 @@ func Test_updateContentPathNamespace(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := updateContentPathNamespace(test.in, test.namespace)
+			got := updateNamespaceInContentPath(test.in, test.namespace)
 			assert.Equal(t, test.expected, got)
 		})
 	}

@@ -21,14 +21,14 @@ const (
 type ActionRequestManager struct {
 }
 
-var _ StateManager = (*ActionRequestManager)(nil)
+var _ octant.StateManager = (*ActionRequestManager)(nil)
 
 // NewActionRequestManager creates an instance of ActionRequestManager.
 func NewActionRequestManager() *ActionRequestManager {
 	return &ActionRequestManager{}
 }
 
-func (a ActionRequestManager) Start(ctx context.Context, state octant.State, s OctantClient) {
+func (a ActionRequestManager) Start(ctx context.Context, state octant.State, s octant.StateClient) {
 }
 
 // Handlers returns the handlers this manager supports.

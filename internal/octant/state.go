@@ -12,12 +12,20 @@ import (
 )
 
 //go:generate mockgen -destination=./fake/mock_state.go -package=fake github.com/vmware-tanzu/octant/internal/octant State
+//go:generate mockgen -destination=./fake/mock_octant_client.go -package=fake github.com/vmware-tanzu/octant/internal/octant OctantClient
+//go:generate mockgen -destination=./fake/mock_state_manager.go -package=fake github.com/vmware-tanzu/octant/internal/octant StateManager
 
 // UpdateCancelFunc cancels the update.
 type UpdateCancelFunc func()
 
 // State represents Octant's view state.
 type State interface {
+	// Client returns the state client.
+	Client() StateClient
+
+	// DefaultContentPath returns the default content path.
+	DefaultContentPath() string
+
 	// SetContentPath sets the content path.
 	SetContentPath(string)
 	// GetContentPath returns the content path.
@@ -56,3 +64,15 @@ type ContentPathUpdateFunc func(contentPath string)
 
 // NamespaceUpdateFunc is a function that is called when namespace is updated.
 type NamespaceUpdateFunc func(namespace string)
+
+// StateClient is an StateClient.
+type StateClient interface {
+	Send(event Event)
+	ID() string
+}
+
+// StateManager manages states for WebsocketState.
+type StateManager interface {
+	Handlers() []ClientRequestHandler
+	Start(ctx context.Context, state State, s StateClient)
+}

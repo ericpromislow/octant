@@ -29,7 +29,7 @@ func TestWebsocketState_Start(t *testing.T) {
 
 	started := make(chan bool, 1)
 	mocks.stateManager.EXPECT().Start(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, state octant.State, wsClient api.OctantClient) {
+		DoAndReturn(func(ctx context.Context, state octant.State, wsClient octant.StateClient) {
 			started <- true
 		})
 	s := mocks.factory()
@@ -288,7 +288,7 @@ func newWebsocketStateMocks(t *testing.T, namespace string) *websocketStateMocks
 
 func (w *websocketStateMocks) options() []api.WebsocketStateOption {
 	return []api.WebsocketStateOption{
-		api.WebsocketStateManagers([]api.StateManager{w.stateManager}),
+		api.WebsocketStateManagers([]octant.StateManager{w.stateManager}),
 	}
 }
 
@@ -301,7 +301,7 @@ func (w *websocketStateMocks) factory() *api.WebsocketState {
 
 }
 
-func AssertHandlers(t *testing.T, manager api.StateManager, expected []string) {
+func AssertHandlers(t *testing.T, manager octant.StateManager, expected []string) {
 	handlers := manager.Handlers()
 	var got []string
 	for _, h := range handlers {

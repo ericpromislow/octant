@@ -11,6 +11,12 @@ const (
 	// EventTypeContent is a content event.
 	EventTypeContent EventType = "content"
 
+	// EventTypeChannelContent is a channel content event.
+	EventTypeChannelContent EventType = "channelContent"
+
+	// EventTypeChannelDestroy is a channel destroy event.
+	EventTypeChannelDestroy EventType = "channelDestroy"
+
 	// EventTypeNamespaces is a namespaces event.
 	EventTypeNamespaces EventType = "namespaces"
 
@@ -49,7 +55,7 @@ const (
 type Event struct {
 	Type EventType   `json:"type"`
 	Data interface{} `json:"data"`
-	Err  error
+	Err  error       `json:"err,omitempty"`
 }
 
 const ()

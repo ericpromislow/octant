@@ -13,20 +13,13 @@ import { ActivatedRoute, Params, Router, UrlSegment } from '@angular/router';
 import { ContentResponse, View } from 'src/app/models/content';
 import { IconService } from './services/icon.service';
 import { ViewService } from './services/view/view.service';
-import { BehaviorSubject, combineLatest } from 'rxjs';
+import { combineLatest, Subject } from 'rxjs';
 import { untilDestroyed } from 'ngx-take-until-destroy';
 import { ContentService } from './services/content/content.service';
 import { WebsocketService } from './services/websocket/websocket.service';
 import { KubeContextService } from './services/kube-context/kube-context.service';
 import { take } from 'rxjs/operators';
 import _ from 'lodash';
-
-const emptyContentResponse: ContentResponse = {
-  content: {
-    viewComponents: [],
-    title: [],
-  },
-};
 
 interface LocationCallbackOptions {
   segments: UrlSegment[];
@@ -42,7 +35,6 @@ interface LocationCallbackOptions {
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class OverviewComponent implements OnInit, OnDestroy {
-  behavior = new BehaviorSubject<ContentResponse>(emptyContentResponse);
   @ViewChild('scrollTarget', { static: true }) scrollTarget: ElementRef;
   hasTabs = false;
   hasReceivedContent = false;
@@ -53,6 +45,7 @@ export class OverviewComponent implements OnInit, OnDestroy {
   private iconName: string;
   private defaultPath: string;
   private previousParams: Params;
+  private navigateCancelSubject = new Subject<boolean>();
 
   constructor(
     private route: ActivatedRoute,
@@ -65,12 +58,6 @@ export class OverviewComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.contentService.current
-      .pipe(untilDestroyed(this))
-      .subscribe(contentResponse => {
-        this.setContent(contentResponse);
-      });
-
     this.withCurrentLocation(options => {
       this.handlePathChange(options.segments, options.params, false);
     });
@@ -129,8 +116,15 @@ export class OverviewComponent implements OnInit, OnDestroy {
       this.resetView();
       this.previousUrl = currentPath;
       this.previousParams = queryParams;
-      this.contentService.setContentPath(currentPath, queryParams);
       this.scrollTarget.nativeElement.scrollTop = 0;
+      this.navigateCancelSubject = new Subject<boolean>();
+
+      this.contentService
+        .contentFor(currentPath, queryParams, this.navigateCancelSubject)
+        .pipe(untilDestroyed(this))
+        .subscribe(contentResponse => {
+          this.setContent(contentResponse);
+        });
     }
   }
 
