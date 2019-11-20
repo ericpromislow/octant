@@ -12,7 +12,6 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"github.com/vmware-tanzu/octant/internal/api"
-	"github.com/vmware-tanzu/octant/internal/api/fake"
 	configFake "github.com/vmware-tanzu/octant/internal/config/fake"
 	"github.com/vmware-tanzu/octant/internal/log"
 	"github.com/vmware-tanzu/octant/internal/octant"
@@ -34,7 +33,7 @@ func TestContext_GenerateContexts(t *testing.T) {
 	defer controller.Finish()
 
 	state := octantFake.NewMockState(controller)
-	octantClient := fake.NewMockOctantClient(controller)
+	octantClient := octantFake.NewMockStateClient(controller)
 
 	ev := octant.Event{
 		Type: "eventType",

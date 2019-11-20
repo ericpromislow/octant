@@ -48,6 +48,7 @@ func Test_rebindHandler(t *testing.T) {
 	}
 
 	for _, tc := range cases {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.listenerKey != "" {
 				viper.Set(tc.listenerKey, tc.listenerAddr)
@@ -99,6 +100,7 @@ func Test_shouldAllowHost(t *testing.T) {
 	}
 
 	for _, tc := range cases {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.expected, shouldAllowHost(tc.host, tc.acceptedHosts))
 		})

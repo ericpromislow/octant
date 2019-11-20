@@ -144,6 +144,7 @@ func (c *WebsocketClient) handle(message []byte) error {
 	var g errgroup.Group
 
 	for _, handler := range handlers {
+		handler := handler
 		g.Go(func() error {
 			return handler.Handler(c.state, request.Payload)
 		})
@@ -187,45 +188,56 @@ func (c *WebsocketClient) writePump() {
 			done = true
 			break
 		case response, ok := <-c.send:
-			if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
-				c.logger.WithErr(err).Errorf("Update websocket write deadline")
-				return
-			}
-			if !ok {
-				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
-
-			w, err := c.conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				return
-			}
-
-			data, err := json.Marshal(response)
-			if err != nil {
-				c.logger.WithErr(err).Errorf("Marshal websocket response")
-				return
-			}
-			if _, err := w.Write(data); err != nil {
-				c.logger.WithErr(err).Errorf("Write websocket response")
-				return
-			}
-
-			if err := w.Close(); err != nil {
-				c.logger.WithErr(err).Errorf("Close websocket writer")
+			if c.sendResponse(ok, response) {
 				return
 			}
 		case <-ticker.C:
-			if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
-				c.logger.WithErr(err).Errorf("Set websocket write deadline")
-				return
-			}
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				c.logger.WithErr(err).Errorf("Send websocket ping")
+			if c.pingClient() {
 				return
 			}
 		}
 	}
+}
+
+func (c *WebsocketClient) pingClient() bool {
+	if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+		c.logger.WithErr(err).Errorf("Set websocket write deadline")
+		return true
+	}
+	if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+		c.logger.WithErr(err).Errorf("Send websocket ping")
+		return true
+	}
+	return false
+}
+
+func (c *WebsocketClient) sendResponse(ok bool, response octant.Event) bool {
+	if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+		c.logger.WithErr(err).Errorf("Update websocket write deadline")
+		return true
+	}
+	if !ok {
+		_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+		return true
+	}
+	w, err := c.conn.NextWriter(websocket.TextMessage)
+	if err != nil {
+		return true
+	}
+	data, err := json.Marshal(response)
+	if err != nil {
+		c.logger.WithErr(err).Errorf("Marshal websocket response")
+		return true
+	}
+	if _, err := w.Write(data); err != nil {
+		c.logger.WithErr(err).Errorf("Write websocket response")
+		return true
+	}
+	if err := w.Close(); err != nil {
+		c.logger.WithErr(err).Errorf("Close websocket writer")
+		return true
+	}
+	return false
 }
 
 func (c *WebsocketClient) Send(ev octant.Event) {

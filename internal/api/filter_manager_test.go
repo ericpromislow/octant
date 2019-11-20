@@ -151,6 +151,7 @@ func TestFilterFromPayload(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, isFound := api.FilterFromPayload(tt.args.in)
 			require.Equal(t, tt.isFound, isFound)
@@ -195,6 +196,7 @@ func TestFiltersFromQueryParams(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := api.FiltersFromQueryParams(tt.args.in)
 			if tt.wantErr {
@@ -234,6 +236,7 @@ func TestParseFilterQueryParam(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := api.ParseFilterQueryParam(tt.args.in)
 			if (err != nil) != tt.wantErr {
@@ -271,6 +274,7 @@ func TestFiltersToLabelSet(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if got := api.FiltersToLabelSet(tt.args.filters); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("FiltersToLabelSet() = %v, want %v", got, tt.want)

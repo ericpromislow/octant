@@ -24,7 +24,6 @@ import (
 )
 
 const (
-	RequestSetContentPath       = "setContentPath"
 	RequestSetNamespace         = "setNamespace"
 	RequestCreateContentStream  = "createContentStream"
 	RequestDestroyContentStream = "destroyContentStream"
@@ -44,19 +43,11 @@ func WithContentGenerator(fn ContentGenerateFunc) ContentManagerOption {
 	}
 }
 
-// WithContentGeneratorPoller configures the poller.
-func WithContentGeneratorPoller(poller Poller) ContentManagerOption {
-	return func(manager *ContentManager) {
-		manager.poller = poller
-	}
-}
-
 // ContentManager manages content for websockets.
 type ContentManager struct {
 	moduleManager       module.ManagerInterface
 	logger              log.Logger
 	contentGenerateFunc ContentGenerateFunc
-	poller              Poller
 	updateContentCh     chan struct{}
 	contentStreamBus    *contentStreamBus
 }
@@ -66,7 +57,6 @@ func NewContentManager(moduleManager module.ManagerInterface, logger log.Logger,
 	cm := &ContentManager{
 		moduleManager:    moduleManager,
 		logger:           logger,
-		poller:           NewInterruptiblePoller("content"),
 		updateContentCh:  make(chan struct{}, 1),
 		contentStreamBus: initContentStreamBus(),
 	}
@@ -91,8 +81,6 @@ func (cm *ContentManager) Start(ctx context.Context, state octant.State, s octan
 		cm.updateContentCh <- struct{}{}
 	})
 	defer updateCancel()
-
-	// cm.poller.Run(ctx, cm.updateContentCh, cm.runUpdate(state, s), event.DefaultScheduleDelay)
 }
 
 func (cm *ContentManager) runUpdate(state octant.State, s octant.StateClient) PollerFunc {
@@ -227,9 +215,19 @@ func (cm *ContentManager) RequestCreateContentStream(state octant.State, payload
 
 	// TODO support filters
 
-	go func() {
+	ctx, err := cm.contentStreamBus.createChannel(channelID)
+	if err != nil {
+		return fmt.Errorf("create content channel: %w", err)
+	}
+
+	go cm.handleChannel(channelID, state, contentPath)(ctx)
+
+	return nil
+}
+
+func (cm *ContentManager) handleChannel(channelID string, state octant.State, contentPath string) func(ctx context.Context) {
+	return func(ctx context.Context) {
 		cm.logger.With("channelID", channelID).Infof("creating stream channel")
-		ctx := cm.contentStreamBus.createChannel(channelID)
 
 		timer := time.NewTimer(0)
 
@@ -267,9 +265,7 @@ func (cm *ContentManager) RequestCreateContentStream(state octant.State, payload
 				timer.Reset(1 * time.Second)
 			}
 		}
-	}()
-
-	return nil
+	}
 }
 
 func (cm *ContentManager) RequestDestroyContentStream(state octant.State, payload action.Payload) error {
@@ -303,12 +299,12 @@ func initContentStreamBus() *contentStreamBus {
 	return csb
 }
 
-func (csb *contentStreamBus) createChannel(channelID string) context.Context {
+func (csb *contentStreamBus) createChannel(channelID string) (context.Context, error) {
 	csb.mu.Lock()
 	defer csb.mu.Unlock()
 
-	if cancel, ok := csb.channels[channelID]; ok {
-		cancel()
+	if _, ok := csb.channels[channelID]; ok {
+		return nil, fmt.Errorf("channel '%s' already exists", channelID)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -322,7 +318,7 @@ func (csb *contentStreamBus) createChannel(channelID string) context.Context {
 	}
 
 	csb.channels[channelID] = fn
-	return ctx
+	return ctx, nil
 }
 
 func (csb *contentStreamBus) deleteChannel(channelID string) {

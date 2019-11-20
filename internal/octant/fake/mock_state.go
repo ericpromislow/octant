@@ -47,6 +47,34 @@ func (mr *MockStateMockRecorder) AddFilter(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddFilter", reflect.TypeOf((*MockState)(nil).AddFilter), arg0)
 }
 
+// Client mocks base method
+func (m *MockState) Client() octant.StateClient {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Client")
+	ret0, _ := ret[0].(octant.StateClient)
+	return ret0
+}
+
+// Client indicates an expected call of Client
+func (mr *MockStateMockRecorder) Client() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Client", reflect.TypeOf((*MockState)(nil).Client))
+}
+
+// DefaultContentPath mocks base method
+func (m *MockState) DefaultContentPath() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DefaultContentPath")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// DefaultContentPath indicates an expected call of DefaultContentPath
+func (mr *MockStateMockRecorder) DefaultContentPath() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultContentPath", reflect.TypeOf((*MockState)(nil).DefaultContentPath))
+}
+
 // Dispatch mocks base method
 func (m *MockState) Dispatch(arg0 context.Context, arg1 string, arg2 action.Payload) error {
 	m.ctrl.T.Helper()

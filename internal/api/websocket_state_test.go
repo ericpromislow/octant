@@ -21,6 +21,7 @@ import (
 	"github.com/vmware-tanzu/octant/internal/log"
 	moduleFake "github.com/vmware-tanzu/octant/internal/module/fake"
 	"github.com/vmware-tanzu/octant/internal/octant"
+	octantFake "github.com/vmware-tanzu/octant/internal/octant/fake"
 )
 
 func TestWebsocketState_Start(t *testing.T) {
@@ -101,6 +102,7 @@ func TestWebsocketState_SetContentPath(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			mocks := newWebsocketStateMocks(t, test.namespace)
 			defer mocks.finish()
@@ -182,6 +184,7 @@ func TestWebsocketState_SetNamespace(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			mocks := newWebsocketStateMocks(t, test.initialNamespace)
 			defer mocks.finish()
@@ -257,8 +260,8 @@ type websocketStateMocks struct {
 	module           *moduleFake.MockModule
 	moduleManager    *moduleFake.MockManagerInterface
 	dashConfig       *configFake.MockDash
-	wsClient         *fake.MockOctantClient
-	stateManager     *fake.MockStateManager
+	wsClient         *octantFake.MockStateClient
+	stateManager     *octantFake.MockStateManager
 	actionDispatcher *fake.MockActionDispatcher
 }
 
@@ -271,8 +274,8 @@ func newWebsocketStateMocks(t *testing.T, namespace string) *websocketStateMocks
 	dashConfig.EXPECT().DefaultNamespace().Return(namespace)
 	dashConfig.EXPECT().ModuleManager().Return(moduleManager).AnyTimes()
 	dashConfig.EXPECT().Logger().Return(log.NopLogger()).AnyTimes()
-	octantClient := fake.NewMockOctantClient(controller)
-	stateManager := fake.NewMockStateManager(controller)
+	octantClient := octantFake.NewMockStateClient(controller)
+	stateManager := octantFake.NewMockStateManager(controller)
 	actionDispatcher := fake.NewMockActionDispatcher(controller)
 
 	return &websocketStateMocks{

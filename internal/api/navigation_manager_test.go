@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/vmware-tanzu/octant/internal/api"
-	"github.com/vmware-tanzu/octant/internal/api/fake"
 	configFake "github.com/vmware-tanzu/octant/internal/config/fake"
 	"github.com/vmware-tanzu/octant/internal/module"
 	moduleFake "github.com/vmware-tanzu/octant/internal/module/fake"
@@ -31,7 +30,7 @@ func TestNavigationManager_GenerateNavigation(t *testing.T) {
 	state := octantFake.NewMockState(controller)
 	state.EXPECT().GetContentPath().Return("/path")
 
-	octantClient := fake.NewMockOctantClient(controller)
+	octantClient := octantFake.NewMockStateClient(controller)
 
 	sections := []navigation.Navigation{{Title: "module"}}
 
@@ -86,6 +85,7 @@ func TestNavigationGenerator(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			controller := gomock.NewController(t)
 			defer controller.Finish()

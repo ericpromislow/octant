@@ -6,20 +6,17 @@
 package api_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/vmware-tanzu/octant/internal/api"
-	"github.com/vmware-tanzu/octant/internal/api/fake"
 	"github.com/vmware-tanzu/octant/internal/log"
 	moduleFake "github.com/vmware-tanzu/octant/internal/module/fake"
 	"github.com/vmware-tanzu/octant/internal/octant"
 	octantFake "github.com/vmware-tanzu/octant/internal/octant/fake"
 	"github.com/vmware-tanzu/octant/pkg/action"
-	"github.com/vmware-tanzu/octant/pkg/view/component"
 )
 
 func TestContentManager_Handlers(t *testing.T) {
@@ -32,72 +29,9 @@ func TestContentManager_Handlers(t *testing.T) {
 
 	manager := api.NewContentManager(moduleManager, logger)
 	AssertHandlers(t, manager, []string{
-		api.RequestSetContentPath,
-		api.RequestSetNamespace,
+		api.RequestCreateContentStream,
+		api.RequestDestroyContentStream,
 	})
-}
-
-func TestContentManager_GenerateContent(t *testing.T) {
-	controller := gomock.NewController(t)
-	defer controller.Finish()
-
-	params := map[string][]string{}
-
-	moduleManager := moduleFake.NewMockManagerInterface(controller)
-	state := octantFake.NewMockState(controller)
-
-	state.EXPECT().GetContentPath().Return("/path")
-	state.EXPECT().GetNamespace().Return("default")
-	state.EXPECT().GetQueryParams().Return(params)
-	state.EXPECT().OnContentPathUpdate(gomock.Any()).DoAndReturn(func(fn octant.ContentPathUpdateFunc) octant.UpdateCancelFunc {
-		fn("foo")
-		return func() {}
-	})
-	octantClient := fake.NewMockOctantClient(controller)
-
-	contentResponse := component.ContentResponse{
-		IconName: "fake",
-	}
-	contentEvent := api.CreateContentEvent(contentResponse, "default", "/path", params)
-	octantClient.EXPECT().Send(contentEvent).AnyTimes()
-
-	logger := log.NopLogger()
-
-	poller := api.NewSingleRunPoller()
-
-	contentGenerator := func(ctx context.Context, state octant.State) (component.ContentResponse, bool, error) {
-		return contentResponse, false, nil
-	}
-	manager := api.NewContentManager(moduleManager, logger,
-		api.WithContentGenerator(contentGenerator),
-		api.WithContentGeneratorPoller(poller))
-
-	ctx := context.Background()
-	manager.Start(ctx, state, octantClient)
-}
-
-func TestContentManager_SetContentPath(t *testing.T) {
-	controller := gomock.NewController(t)
-	defer controller.Finish()
-
-	m := moduleFake.NewMockModule(controller)
-	m.EXPECT().Name().Return("name").AnyTimes()
-
-	moduleManager := moduleFake.NewMockManagerInterface(controller)
-
-	state := octantFake.NewMockState(controller)
-	state.EXPECT().SetContentPath("/path")
-
-	logger := log.NopLogger()
-
-	manager := api.NewContentManager(moduleManager, logger,
-		api.WithContentGeneratorPoller(api.NewSingleRunPoller()))
-
-	payload := action.Payload{
-		"contentPath": "/path",
-	}
-
-	require.NoError(t, manager.SetContentPath(state, payload))
 }
 
 func TestContentManager_SetNamespace(t *testing.T) {
@@ -114,8 +48,7 @@ func TestContentManager_SetNamespace(t *testing.T) {
 
 	logger := log.NopLogger()
 
-	manager := api.NewContentManager(moduleManager, logger,
-		api.WithContentGeneratorPoller(api.NewSingleRunPoller()))
+	manager := api.NewContentManager(moduleManager, logger)
 
 	payload := action.Payload{
 		"namespace": "kube-system",
@@ -163,6 +96,7 @@ func TestContentManager_SetQueryParams(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			controller := gomock.NewController(t)
 			defer controller.Finish()
@@ -178,8 +112,7 @@ func TestContentManager_SetQueryParams(t *testing.T) {
 
 			logger := log.NopLogger()
 
-			manager := api.NewContentManager(moduleManager, logger,
-				api.WithContentGeneratorPoller(api.NewSingleRunPoller()))
+			manager := api.NewContentManager(moduleManager, logger)
 			require.NoError(t, manager.SetQueryParams(state, test.payload))
 		})
 	}

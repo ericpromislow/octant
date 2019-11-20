@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/vmware-tanzu/octant/internal/api"
-	"github.com/vmware-tanzu/octant/internal/api/fake"
 	clusterFake "github.com/vmware-tanzu/octant/internal/cluster/fake"
 	configFake "github.com/vmware-tanzu/octant/internal/config/fake"
 	octantFake "github.com/vmware-tanzu/octant/internal/octant/fake"
@@ -26,7 +25,7 @@ func TestNamespacesManager_GenerateNamespaces(t *testing.T) {
 	dashConfig := configFake.NewMockDash(controller)
 
 	state := octantFake.NewMockState(controller)
-	octantClient := fake.NewMockOctantClient(controller)
+	octantClient := octantFake.NewMockStateClient(controller)
 
 	namespaces := []string{"default"}
 
@@ -71,6 +70,7 @@ func TestNamespacesGenerator(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			controller := gomock.NewController(t)
 			defer controller.Finish()

@@ -12,7 +12,7 @@ import (
 )
 
 //go:generate mockgen -destination=./fake/mock_state.go -package=fake github.com/vmware-tanzu/octant/internal/octant State
-//go:generate mockgen -destination=./fake/mock_octant_client.go -package=fake github.com/vmware-tanzu/octant/internal/octant OctantClient
+//go:generate mockgen -destination=./fake/mock_state_client.go -package=fake github.com/vmware-tanzu/octant/internal/octant StateClient
 //go:generate mockgen -destination=./fake/mock_state_manager.go -package=fake github.com/vmware-tanzu/octant/internal/octant StateManager
 
 // UpdateCancelFunc cancels the update.

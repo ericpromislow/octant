@@ -49,6 +49,7 @@ func TestAPI_routes(t *testing.T) {
 	}
 
 	for _, tc := range cases {
+		tc := tc
 		name := fmt.Sprintf("%s: %s", tc.method, tc.path)
 		t.Run(name, func(t *testing.T) {
 			controller := gomock.NewController(t)
