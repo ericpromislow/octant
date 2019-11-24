@@ -81,7 +81,8 @@ export class ContentService {
 
     websocketService.registerHandler(ChannelContentDestroyMessage, data => {
       const response = data as ChannelDestroyUpdate;
-      this.channelDestroy.next(response);
+      console.log('received channel destroy', { data });
+      // this.channelDestroy.next(response);
     });
 
     labelFilterService.filters.subscribe(filters => {
@@ -89,7 +90,15 @@ export class ContentService {
     });
   }
 
-  contentFor(contentPath: string, params: Params, cancel: Subject<boolean>) {
+  contentFor(
+    contentPath: string,
+    params: Params,
+    cancel: Subject<boolean>
+  ): Observable<ContentResponse> | undefined {
+    if (!contentPath) {
+      return null;
+    }
+    console.log(`starting content stream for ${contentPath}`);
     const channelID = contentPath;
     let namespace =
       this.namespaceService.activeNamespace.getValue() || 'default';
@@ -108,7 +117,7 @@ export class ContentService {
       this.namespaceService.activeNamespace.subscribe(newNamespace => {
         if (namespace !== newNamespace) {
           console.log(`setting namespace to ${newNamespace} (${namespace})`);
-          this.destroyContentStream(channelID);
+          // this.destroyContentStream(channelID);
           this.createContentStream(
             contentPath,
             channelID,

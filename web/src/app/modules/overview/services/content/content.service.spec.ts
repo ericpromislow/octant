@@ -15,7 +15,7 @@ import {
   BackendService,
   WebsocketService,
 } from '../websocket/websocket.service';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import {
   Filter,
   LabelFilterService,
@@ -70,6 +70,28 @@ describe('ContentService', () => {
     });
   });
 
+  describe('contentFor', () => {
+    let backendService: BackendService;
+
+    beforeEach(() => {
+      backendService = TestBed.get(WebsocketService);
+      spyOn(backendService, 'sendMessage');
+    });
+
+    it('retrieves content for a path', () => {
+      service.contentFor('/path', {}, null);
+      expect(backendService.sendMessage).toHaveBeenCalledWith(
+        'createContentStream',
+        {
+          contentPath: '/path',
+          channelID: '/path',
+          params: {},
+          namespace: 'default',
+        }
+      );
+    });
+  });
+
   describe('label filters updated', () => {
     let labelFilterService: LabelFilterService;
 
@@ -85,43 +107,43 @@ describe('ContentService', () => {
     });
   });
 
-  describe('set content path', () => {
-    let backendService: BackendService;
-    let filters: Filter[];
-
-    beforeEach(() => {
-      backendService = TestBed.get(WebsocketService);
-      spyOn(backendService, 'sendMessage');
-    });
-
-    it('sends a setContentPath message to the server', () => {
-      service.setContentPath('path', {});
-      expect(backendService.sendMessage).toHaveBeenCalledWith(
-        'setContentPath',
-        {
-          contentPath: 'path',
-          params: {},
-        }
-      );
-    });
-
-    describe('with filters defined', () => {
-      beforeEach(() => {
-        filters = [{ key: 'foo', value: 'bar' }];
-        const labelFilterService = TestBed.get(LabelFilterService);
-        labelFilterService.filters.next(filters);
-      });
-
-      it('sends a setContentPath message to the server', () => {
-        service.setContentPath('path', { filters });
-        expect(backendService.sendMessage).toHaveBeenCalledWith(
-          'setContentPath',
-          {
-            contentPath: 'path',
-            params: { filters },
-          }
-        );
-      });
-    });
-  });
+  // describe('set content path', () => {
+  //   let backendService: BackendService;
+  //   let filters: Filter[];
+  //
+  //   beforeEach(() => {
+  //     backendService = TestBed.get(WebsocketService);
+  //     spyOn(backendService, 'sendMessage');
+  //   });
+  //
+  //   it('sends a setContentPath message to the server', () => {
+  //     service.setContentPath('path', {});
+  //     expect(backendService.sendMessage).toHaveBeenCalledWith(
+  //       'setContentPath',
+  //       {
+  //         contentPath: 'path',
+  //         params: {},
+  //       }
+  //     );
+  //   });
+  //
+  //   describe('with filters defined', () => {
+  //     beforeEach(() => {
+  //       filters = [{ key: 'foo', value: 'bar' }];
+  //       const labelFilterService = TestBed.get(LabelFilterService);
+  //       labelFilterService.filters.next(filters);
+  //     });
+  //
+  //     it('sends a setContentPath message to the server', () => {
+  //       service.setContentPath('path', { filters });
+  //       expect(backendService.sendMessage).toHaveBeenCalledWith(
+  //         'setContentPath',
+  //         {
+  //           contentPath: 'path',
+  //           params: { filters },
+  //         }
+  //       );
+  //     });
+  //   });
+  // });
 });

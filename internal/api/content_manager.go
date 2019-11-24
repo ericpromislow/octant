@@ -7,8 +7,6 @@ package api
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -45,11 +43,12 @@ func WithContentGenerator(fn ContentGenerateFunc) ContentManagerOption {
 
 // ContentManager manages content for websockets.
 type ContentManager struct {
-	moduleManager       module.ManagerInterface
-	logger              log.Logger
-	contentGenerateFunc ContentGenerateFunc
-	updateContentCh     chan struct{}
-	contentStreamBus    *contentStreamBus
+	moduleManager        module.ManagerInterface
+	logger               log.Logger
+	contentGenerateFunc  ContentGenerateFunc
+	updateContentCh      chan struct{}
+	contentStreamBus     *contentStreamBus
+	contentStreamFactory func(channelID, contentPath string, state octant.State, genFunc ContentGenerateFunc2) ContentStreamer
 }
 
 // NewContentManager creates an instance of ContentManager.
@@ -59,6 +58,9 @@ func NewContentManager(moduleManager module.ManagerInterface, logger log.Logger,
 		logger:           logger,
 		updateContentCh:  make(chan struct{}, 1),
 		contentStreamBus: initContentStreamBus(),
+		contentStreamFactory: func(channelID, contentPath string, state octant.State, genFunc ContentGenerateFunc2) ContentStreamer {
+			return newContentStreamer(channelID, contentPath, state, genFunc)
+		},
 	}
 	cm.contentGenerateFunc = cm.generateContent
 
@@ -199,12 +201,12 @@ func (cm *ContentManager) RequestCreateContentStream(state octant.State, payload
 		contentPath = state.DefaultContentPath()
 	}
 
-	namespace, err := payload.String("namespace")
-	if err != nil {
-		return fmt.Errorf("extract namespace from payload: %w", err)
-	}
+	// namespace, err := payload.String("namespace")
+	// if err != nil {
+	// 	return fmt.Errorf("extract namespace from payload: %w", err)
+	// }
 
-	contentPath = updateNamespaceInContentPath(contentPath, namespace)
+	// contentPath = updateNamespaceInContentPath(contentPath, namespace)
 
 	channelID, err := payload.String("channelID")
 	if err != nil {
@@ -220,52 +222,21 @@ func (cm *ContentManager) RequestCreateContentStream(state octant.State, payload
 		return fmt.Errorf("create content channel: %w", err)
 	}
 
-	go cm.handleChannel(channelID, state, contentPath)(ctx)
+	go cm.handleChannel(ctx, channelID, state, contentPath)
 
 	return nil
 }
 
-func (cm *ContentManager) handleChannel(channelID string, state octant.State, contentPath string) func(ctx context.Context) {
-	return func(ctx context.Context) {
-		cm.logger.With("channelID", channelID).Infof("creating stream channel")
+func (cm *ContentManager) handleChannel(ctx context.Context, channelID string, state octant.State, contentPath string) {
+	cm.logger.With("channelID", channelID).Infof("creating stream channel")
 
-		timer := time.NewTimer(0)
-
-		previousHash := ""
-		done := false
-		for !done {
-			select {
-			case <-ctx.Done():
-				done = true
-				timer.Stop()
-			case <-timer.C:
-				contentResponse, _, err := cm.generateContentForPath(ctx, state, contentPath)
-				if err != nil {
-					// TODO: figure out how to handle this error
-				}
-
-				stateClient := state.Client()
-
-				data, err := json.Marshal(contentResponse)
-				if err != nil {
-					// TODO: handle this error
-				}
-				hash := fmt.Sprintf("%x", sha1.Sum(data))
-				if hash != previousHash {
-					e := CreateChannelContentEvent(
-						contentResponse,
-						state.GetNamespace(),
-						contentPath,
-						channelID,
-						state.GetQueryParams())
-					stateClient.Send(e)
-				}
-				previousHash = hash
-
-				timer.Reset(1 * time.Second)
-			}
-		}
+	fn := func(ctx context.Context, state octant.State, contentPath string) (component.ContentResponse, error) {
+		cr, _, err := cm.generateContentForPath(ctx, state, contentPath)
+		return cr, err
 	}
+
+	cs := cm.contentStreamFactory(channelID, contentPath, state, fn)
+	cs.Stream(ctx)
 }
 
 func (cm *ContentManager) RequestDestroyContentStream(state octant.State, payload action.Payload) error {
@@ -345,20 +316,28 @@ func CreateContentEvent(contentResponse component.ContentResponse, namespace, co
 	}
 }
 
+type ChannelContentResponse struct {
+	Content     component.ContentResponse
+	Namespace   string
+	ContentPath string
+	ChannelID   string
+	QueryParams octant.QueryParams
+}
+
 func CreateChannelContentEvent(
 	contentResponse component.ContentResponse,
 	namespace string,
 	contentPath string,
 	channelID string,
-	queryParams map[string][]string) octant.Event {
+	queryParams octant.QueryParams) octant.Event {
 	return octant.Event{
 		Type: octant.EventTypeChannelContent,
-		Data: map[string]interface{}{
-			"content":     contentResponse,
-			"namespace":   namespace,
-			"contentPath": contentPath,
-			"channelID":   channelID,
-			"queryParams": queryParams,
+		Data: ChannelContentResponse{
+			Content:     contentResponse,
+			Namespace:   namespace,
+			ContentPath: contentPath,
+			ChannelID:   channelID,
+			QueryParams: queryParams,
 		},
 	}
 }

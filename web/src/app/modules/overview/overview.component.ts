@@ -9,7 +9,13 @@ import {
   OnInit,
   ViewChild,
 } from '@angular/core';
-import { ActivatedRoute, Params, Router, UrlSegment } from '@angular/router';
+import {
+  ActivatedRoute,
+  NavigationEnd,
+  Params,
+  Router,
+  UrlSegment,
+} from '@angular/router';
 import { ContentResponse, View } from 'src/app/models/content';
 import { IconService } from './services/icon.service';
 import { ViewService } from './services/view/view.service';
@@ -68,6 +74,13 @@ export class OverviewComponent implements OnInit, OnDestroy {
         this.kubeContextService.select({ name: options.currentContext });
       }, true);
     });
+
+    this.router.events.pipe(untilDestroyed(this)).subscribe(ev => {
+      if (ev instanceof NavigationEnd) {
+        this.navigateCancelSubject.next(true);
+        console.log('navigation has ended', { ev });
+      }
+    });
   }
 
   ngOnDestroy() {
@@ -119,12 +132,17 @@ export class OverviewComponent implements OnInit, OnDestroy {
       this.scrollTarget.nativeElement.scrollTop = 0;
       this.navigateCancelSubject = new Subject<boolean>();
 
-      this.contentService
-        .contentFor(currentPath, queryParams, this.navigateCancelSubject)
-        .pipe(untilDestroyed(this))
-        .subscribe(contentResponse => {
+      const observable = this.contentService.contentFor(
+        currentPath,
+        queryParams,
+        this.navigateCancelSubject
+      );
+
+      if (observable) {
+        observable.pipe(untilDestroyed(this)).subscribe(contentResponse => {
           this.setContent(contentResponse);
         });
+      }
     }
   }
 

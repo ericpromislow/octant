@@ -18,6 +18,9 @@ import (
 // UpdateCancelFunc cancels the update.
 type UpdateCancelFunc func()
 
+// QueryParams are query parameters.
+type QueryParams map[string][]string
+
 // State represents Octant's view state.
 type State interface {
 	// Client returns the state client.
@@ -34,7 +37,7 @@ type State interface {
 	// is changed.
 	OnContentPathUpdate(fn ContentPathUpdateFunc) UpdateCancelFunc
 	// GetQueryParams returns the query params.
-	GetQueryParams() map[string][]string
+	GetQueryParams() QueryParams
 	// SetNamespace sets the namespace.
 	SetNamespace(namespace string)
 	// GetNamespace returns the namespace.

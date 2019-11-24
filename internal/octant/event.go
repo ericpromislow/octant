@@ -49,6 +49,9 @@ const (
 
 	// EventTypeAlert is an alert event.
 	EventTypeAlert EventType = "alert"
+
+	// EventTypeError is an error event.
+	EventTypeError EventType = "error"
 )
 
 // Event is an event for the dash frontend.
@@ -58,4 +61,10 @@ type Event struct {
 	Err  error       `json:"err,omitempty"`
 }
 
-const ()
+// CreateErrorEvent creates event with an error.
+func CreateErrorEvent(err error) Event {
+	return Event{
+		Type: EventTypeError,
+		Err:  err,
+	}
+}

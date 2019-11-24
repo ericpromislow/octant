@@ -132,10 +132,10 @@ func (mr *MockStateMockRecorder) GetNamespace() *gomock.Call {
 }
 
 // GetQueryParams mocks base method
-func (m *MockState) GetQueryParams() map[string][]string {
+func (m *MockState) GetQueryParams() octant.QueryParams {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetQueryParams")
-	ret0, _ := ret[0].(map[string][]string)
+	ret0, _ := ret[0].(octant.QueryParams)
 	return ret0
 }
 

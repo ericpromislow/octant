@@ -330,12 +330,12 @@ func (c *WebsocketState) SetContext(requestedContext string) {
 	)))
 }
 
-func (c *WebsocketState) GetQueryParams() map[string][]string {
+func (c *WebsocketState) GetQueryParams() octant.QueryParams {
 	filters := c.filters
 
 	c.wsClient.Send(CreateFiltersUpdate(filters))
 
-	queryParams := map[string][]string{}
+	queryParams := octant.QueryParams{}
 
 	var filterList []string
 	for _, filter := range filters {
