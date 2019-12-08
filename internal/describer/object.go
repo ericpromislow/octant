@@ -161,8 +161,7 @@ func (d *Object) addSummaryTab(ctx context.Context, object runtime.Object, cr *c
 		errComponent := component.NewError(component.TitleFromString("Summary"), err)
 		cr.Add(errComponent)
 
-		logger := log.From(ctx)
-		logger.Errorf("printing object: %s", err)
+		options.Dash.Logger().WithErr(err).Errorf("printing object")
 
 		return nil
 	}

@@ -72,8 +72,9 @@ func CreateGraphNode(id, label string, options ...GraphNodeOption) GraphNode {
 }
 
 type GraphConfig struct {
-	Links []GraphLink `json:"links"`
-	Nodes []GraphNode `json:"nodes"`
+	Links  []GraphLink `json:"links"`
+	Nodes  []GraphNode `json:"nodes"`
+	Layout GraphLayout `json:"layout"`
 }
 
 type Graph struct {
@@ -89,6 +90,16 @@ func NewGraph() *Graph {
 	}
 
 	return g
+}
+
+type GraphLayout string
+
+const (
+	GraphLayoutDagre GraphLayout = "dagre"
+)
+
+func (g *Graph) SetLayout(layout GraphLayout) {
+	g.Config.Layout = layout
 }
 
 func (g *Graph) MarshalJSON() ([]byte, error) {

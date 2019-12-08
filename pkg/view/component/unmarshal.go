@@ -41,6 +41,11 @@ func unmarshal(to TypedObject) (Component, error) {
 		err = errors.Wrapf(json.Unmarshal(to.Config, &t.Config),
 			"unmarshal expressionSelector config")
 		o = t
+	case typeGraph:
+		t := &Graph{base: base{Metadata: to.Metadata}}
+		err = errors.Wrapf(json.Unmarshal(to.Config, &t.Config),
+			"unmarshal graph config")
+		o = t
 	case typeGraphviz:
 		t := &Graphviz{base: base{Metadata: to.Metadata}}
 		err = errors.Wrapf(json.Unmarshal(to.Config, &t.Config),

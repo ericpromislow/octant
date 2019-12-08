@@ -103,6 +103,7 @@ export interface GraphView extends View {
   config: {
     links: GraphEdge[];
     nodes: GraphNode[];
+    layout: string;
   };
 }
 

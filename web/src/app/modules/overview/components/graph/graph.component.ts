@@ -19,24 +19,22 @@ export class GraphComponent implements OnInit, OnChanges {
 
   nodes: GraphNode[] = [];
   links: GraphEdge[] = [];
+  layout = 'dagre';
 
   constructor(@Inject(DOCUMENT) private document: Document) {}
 
-  ngOnInit() {
-    console.log('graph created');
-  }
+  ngOnInit() {}
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes.view.currentValue) {
-      if (!viewIsEqual(changes.view.previousValue, changes.view.currentValue)) {
-        console.log('graph updated', changes.view.currentValue);
+    const cur = changes.view.currentValue;
+    if (cur) {
+      if (!viewIsEqual(changes.view.previousValue, cur)) {
+        console.log('graph updated', cur);
 
-        this.nodes = JSON.parse(
-          JSON.stringify(changes.view.currentValue.config.nodes)
-        );
-        this.links = JSON.parse(
-          JSON.stringify(changes.view.currentValue.config.links)
-        );
+        this.nodes = JSON.parse(JSON.stringify(cur.config.nodes));
+        this.links = JSON.parse(JSON.stringify(cur.config.links)) || [];
+
+        this.layout = cur.layout;
       }
     }
   }
@@ -72,13 +70,13 @@ export class GraphComponent implements OnInit, OnChanges {
   }
 }
 
-const viewIsEqual = (a?: GraphView, b: GraphView): boolean => {
+const viewIsEqual = (a: GraphView, b: GraphView): boolean => {
   if (!a) {
     return false;
   }
 
-  const aj = JSON.stringify(a.config);
-  const bj = JSON.stringify(b.config);
+  const aj = JSON.stringify(a);
+  const bj = JSON.stringify(b);
 
   return aj === bj;
 };
