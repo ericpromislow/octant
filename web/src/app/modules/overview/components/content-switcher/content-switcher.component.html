@@ -18,6 +18,9 @@
     <ng-container *ngSwitchCase="'expressionSelector'">
       <app-view-expression-selector [view]="view"></app-view-expression-selector>
     </ng-container>
+    <ng-container *ngSwitchCase="'graph'">
+      <app-view-graph [view]="view"></app-view-graph>
+    </ng-container>
     <ng-container *ngSwitchCase="'graphviz'">
       <app-view-graphviz [view]="view"></app-view-graphviz>
     </ng-container>

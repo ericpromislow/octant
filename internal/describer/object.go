@@ -64,6 +64,7 @@ func NewObject(c ObjectConfig) *Object {
 		{name: "resource viewer", tabFunc: o.addResourceViewerTab},
 		{name: "yaml", tabFunc: o.addYAMLViewerTab},
 		{name: "logs", tabFunc: o.addLogsTab},
+		{name: "graph test", tabFunc: o.graphTestTab},
 	}
 
 	return o
@@ -236,6 +237,57 @@ func (d *Object) addLogsTab(ctx context.Context, object runtime.Object, cr *comp
 		logsComponent.SetAccessor("logs")
 		cr.Add(logsComponent)
 	}
+
+	return nil
+}
+
+func (d *Object) graphTestTab(ctx context.Context, object runtime.Object, cr *component.ContentResponse, options Options) error {
+	p1 := component.ColorPalette{
+		LightFg: "black",
+		LightBg: "#e1c9f1",
+		DarkFg:  "white",
+		DarkBg:  "#660092",
+	}
+
+	p2 := component.ColorPalette{
+		LightFg: "black",
+		LightBg: "#c7e59c",
+		DarkFg:  "white",
+		DarkBg:  "#266900",
+	}
+
+	p3 := component.ColorPalette{
+		LightFg: "black",
+		LightBg: "#a7f4e9",
+		DarkFg:  "white",
+		DarkBg:  "#007e7a",
+	}
+
+	g := component.NewGraph()
+	g.Config.Nodes = []component.GraphNode{
+		component.CreateGraphNode("first", "this is some long text", component.GraphNodeOptionPalette(p1)),
+		component.CreateGraphNode("second", "more long text", component.GraphNodeOptionPalette(p2)),
+		component.CreateGraphNode("third", "two lines of text\nmaybe?", component.GraphNodeOptionPalette(p3)),
+	}
+
+	g.Config.Links = []component.GraphLink{
+		{
+			ID:     "a",
+			Source: "first",
+			Target: "second",
+			Label:  "is parent of",
+		},
+		{
+			ID:     "b",
+			Source: "first",
+			Target: "third",
+			Label:  "custom label",
+		},
+	}
+
+	g.SetTitleText("Graph")
+	g.SetAccessor("graph")
+	cr.Add(g)
 
 	return nil
 }

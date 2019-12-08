@@ -1,0 +1,25 @@
+<div style="height: 100%; width: 100%; touch-action: none">
+    <ngx-graph [autoCenter]="true"
+               [autoZoom]="true"
+               [draggingEnabled]="false"
+               [links]="links"
+               [maxZoomLevel]="10"
+               [minZoomLevel]="0.1"
+               [nodes]="nodes"
+               class="chart-container">
+        <ng-template #nodeTemplate let-node>
+            <svg:g (click)="clickHandler(node)" class="node">
+                <svg:rect [attr.fill]="nodeColor(node.data).bg" [attr.height]="node.dimension.height"
+                          [attr.width]="node.dimension.width"/>
+                <svg:text [attr.fill]="nodeColor(node.data).fg" [attr.x]="10" y="1em">
+                    <svg:tspan *ngFor="let tspan of nodeLabel(node.label); trackBy: trackByNodeLabel"
+                               [attr.dy]="tspan.y"
+                               [attr.x]="10">
+                        {{tspan.line}}
+                    </svg:tspan>
+                </svg:text>
+            </svg:g>
+        </ng-template>
+    </ngx-graph>
+</div>
+

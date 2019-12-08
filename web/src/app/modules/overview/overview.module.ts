@@ -61,6 +61,8 @@ import { SliderViewComponent } from './components/slider-view/slider-view.compon
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { DonutChartComponent } from './components/donut-chart/donut-chart.component';
 import { SingleStatComponent } from './components/single-stat/single-stat.component';
+import { GraphComponent } from './components/graph/graph.component';
+import { NgxGraphModule } from '@swimlane/ngx-graph';
 
 export function hljsLanguages() {
   return [{ name: 'yaml', func: yaml }, { name: 'json', func: json }];
@@ -116,6 +118,7 @@ export function hljsLanguages() {
     SliderViewComponent,
     DonutChartComponent,
     SingleStatComponent,
+    GraphComponent,
   ],
   imports: [
     BrowserAnimationsModule,
@@ -130,6 +133,7 @@ export function hljsLanguages() {
     ReactiveFormsModule,
     MarkdownModule.forChild(),
     NgTerminalModule,
+    NgxGraphModule,
   ],
   exports: [ContextSelectorComponent, DefaultPipe, SafePipe],
 })

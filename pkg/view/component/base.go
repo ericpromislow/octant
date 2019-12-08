@@ -15,6 +15,7 @@ const (
 	typeError               = "error"
 	typeExpressionSelector  = "expressionSelector"
 	typeFlexLayout          = "flexlayout"
+	typeGraph               = "graph"
 	typeGraphviz            = "graphviz"
 	typeIFrame              = "iframe"
 	typeLabels              = "labels"

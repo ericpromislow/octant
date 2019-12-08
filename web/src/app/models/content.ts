@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+import { NodeDimension, NodePosition } from '@swimlane/ngx-graph';
+
 export interface ContentResponse {
   content: Content;
 }
@@ -68,6 +70,39 @@ export interface DonutChartView extends View {
   config: {
     segments: DonutSegment[];
     labels: DonutChartLabels;
+  };
+}
+
+export interface GraphEdge {
+  id?: string;
+  source: string;
+  target: string;
+  label?: string;
+  data?: any;
+  points?: any;
+  line?: string;
+  textTransform?: string;
+  textAngle?: number;
+  oldLine?: any;
+  oldTextPath?: string;
+  textPath?: string;
+  midPoint?: NodePosition;
+}
+
+export interface GraphNode {
+  id: string;
+  position?: NodePosition;
+  dimension?: NodeDimension;
+  transform?: string;
+  label?: string;
+  data?: any;
+  meta?: any;
+}
+
+export interface GraphView extends View {
+  config: {
+    links: GraphEdge[];
+    nodes: GraphNode[];
   };
 }
 
