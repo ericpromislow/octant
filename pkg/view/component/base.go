@@ -5,6 +5,12 @@ SPDX-License-Identifier: Apache-2.0
 
 package component
 
+import (
+	"crypto/md5"
+	"encoding/json"
+	"fmt"
+)
+
 const (
 	typeAnnotations        = "annotations"
 	typeButtonGroup        = "buttonGroup"
@@ -75,4 +81,13 @@ func (b *base) String() string {
 // LessThan returns false.
 func (b *base) LessThan(i interface{}) bool {
 	return false
+}
+
+func (b *base) GenerateChecksum(config interface{}) (string, error) {
+	configData, err := json.Marshal(config)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", md5.Sum(configData)), nil
 }

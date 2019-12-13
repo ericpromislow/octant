@@ -5,7 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package component
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // Text is a component for text
 type Text struct {
@@ -61,6 +63,14 @@ type textMarshal Text
 func (t *Text) MarshalJSON() ([]byte, error) {
 	m := textMarshal(*t)
 	m.Metadata.Type = typeText
+
+	checksum, err := t.base.GenerateChecksum(t.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	m.Metadata.Checksum = checksum
+
 	return json.Marshal(&m)
 }
 

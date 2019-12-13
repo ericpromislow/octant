@@ -17,6 +17,7 @@ export interface Metadata {
   type: string;
   title?: View[];
   accessor?: string;
+  checksum: string;
 }
 
 export interface View {
