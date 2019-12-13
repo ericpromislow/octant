@@ -7,7 +7,7 @@
   <tbody>
     <tr *ngFor="let row of rows; trackBy: trackByIndex">
       <td *ngFor="let column of columns; trackBy: trackByIdentity">
-        <app-content-switcher [view]="row[column]"></app-content-switcher>
+        <app-dynamic-view [view]="row[column]"></app-dynamic-view>
       </td>
     </tr>
   </tbody>

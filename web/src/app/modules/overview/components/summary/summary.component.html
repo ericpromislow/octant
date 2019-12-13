@@ -38,9 +38,6 @@
                         <ng-container *ngSwitchCase="'selectors'">
                             <app-view-selectors [view]="item.content"></app-view-selectors>
                         </ng-container>
-                        <ng-container *ngSwitchCase="'text'">
-                            <app-view-text [view]="item.content"></app-view-text>
-                        </ng-container>
                         <ng-container *ngSwitchCase="'timestamp'">
                             <app-view-timestamp [view]="item.content"></app-view-timestamp>
                         </ng-container>
@@ -59,12 +56,9 @@
                         <ng-container *ngSwitchCase="'error'">
                             <app-view-error [view]="item.content"></app-view-error>
                         </ng-container>
-                        <div class="alert alert-danger static" *ngSwitchDefault>
-                          <span class="alert-icon-wrapper">
-                            <clr-icon class="alert-icon" shape="exclamation-circle"></clr-icon>
-                          </span>
-                            <span class="alert-text"> {{ item.content.metadata.type }} not implemented </span>
-                        </div>
+                        <ng-container *ngSwitchDefault>
+                            <app-dynamic-view [view]="item.content"></app-dynamic-view>
+                        </ng-container>
                     </td>
                 </tr>
                 </tbody>

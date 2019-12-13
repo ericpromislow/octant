@@ -59,6 +59,7 @@ import { TerminalComponent } from 'src/app/components/terminal/terminal.componen
 import { IFrameComponent } from './components/iframe/iframe.component';
 import { SliderViewComponent } from './components/slider-view/slider-view.component';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { DynamicViewComponent } from './components/dynamic-view/dynamic-view.component';
 
 export function hljsLanguages() {
   return [{ name: 'yaml', func: yaml }, { name: 'json', func: json }];
@@ -112,6 +113,7 @@ export function hljsLanguages() {
     ContentFilterComponent,
     TerminalComponent,
     SliderViewComponent,
+    DynamicViewComponent,
   ],
   imports: [
     BrowserAnimationsModule,
@@ -128,5 +130,6 @@ export function hljsLanguages() {
     NgTerminalModule,
   ],
   exports: [ContextSelectorComponent, DefaultPipe, SafePipe],
+  entryComponents: [ListComponent, TextComponent, ContentSwitcherComponent],
 })
 export class OverviewModule {}

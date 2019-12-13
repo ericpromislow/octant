@@ -5,7 +5,7 @@
             <app-object-tabs [views]="views" [title]="title" [iconName]="iconName"></app-object-tabs>
         </ng-template>
         <ng-template #withoutTabs>
-            <app-content-switcher [view]="singleView"></app-content-switcher>
+            <app-dynamic-view [view]="singleView"></app-dynamic-view>
         </ng-template>
     </ng-container>
 </div>

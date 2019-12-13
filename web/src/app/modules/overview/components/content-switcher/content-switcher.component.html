@@ -39,9 +39,9 @@
     <ng-container *ngSwitchCase="'link'">
       <app-view-link [view]="view"></app-view-link>
     </ng-container>
-    <ng-container *ngSwitchCase="'list'">
-      <app-view-list [listView]="view"></app-view-list>
-    </ng-container>
+<!--    <ng-container *ngSwitchCase="'list'">-->
+<!--      <app-view-list [listView]="view"></app-view-list>-->
+<!--    </ng-container>-->
     <ng-container *ngSwitchCase="'podStatus'">
       <app-pod-status [view]="view"></app-pod-status>
     </ng-container>
@@ -62,9 +62,6 @@
     </ng-container>
     <ng-container *ngSwitchCase="'table'">
       <app-view-datagrid [view]="view"></app-view-datagrid>
-    </ng-container>
-    <ng-container *ngSwitchCase="'text'">
-      <app-view-text [view]="view"></app-view-text>
     </ng-container>
     <ng-container *ngSwitchCase="'timestamp'">
       <app-view-timestamp [view]="view"></app-view-timestamp>

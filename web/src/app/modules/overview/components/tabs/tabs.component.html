@@ -12,7 +12,7 @@
         </button>
         <ng-template [clrIfActive]="activeTab === tab.accessor">
             <clr-tab-content>
-                <app-content-switcher [view]="tab.view"></app-content-switcher>
+                <app-dynamic-view [view]="tab.view"></app-dynamic-view>
             </clr-tab-content>
         </ng-template>
     </clr-tab>

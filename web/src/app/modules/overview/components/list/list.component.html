@@ -5,5 +5,5 @@
     {{ title }}
 </h2>
 <ng-container *ngFor="let item of listView?.config.items; trackBy: identifyItem">
-    <app-content-switcher [view]="item"></app-content-switcher>
+    <app-dynamic-view [view]="item"></app-dynamic-view>
 </ng-container>
