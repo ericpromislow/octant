@@ -6,7 +6,7 @@ require (
 	contrib.go.opencensus.io/exporter/jaeger v0.2.1
 	github.com/GeertJohan/go.rice v1.0.0
 	github.com/asticode/go-astikit v0.8.0
-	github.com/asticode/go-astilectron v0.14.2
+	github.com/asticode/go-astilectron v0.16.0
 	github.com/asticode/go-astilectron-bundler v0.5.2
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dlclark/regexp2 v1.2.0 // indirect
@@ -45,7 +45,6 @@ require (
 	golang.org/x/tools v0.0.0-20200716134326-a8f9df4c9543
 	google.golang.org/grpc v1.31.0
 	google.golang.org/grpc/examples v0.0.0-20200707005602-4258d12073b4 // indirect
-	gotest.tools v2.2.0+incompatible // indirect
 	k8s.io/api v0.19.0-alpha.3
 	k8s.io/apiextensions-apiserver v0.19.0-alpha.3
 	k8s.io/apimachinery v0.19.0-beta.2
